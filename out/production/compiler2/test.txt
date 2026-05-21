@@ -1,0 +1,78 @@
+from datetime import datetime
+
+from flask import Flask, redirect, render_template, request, url_for
+
+app = Flask(__name__)
+
+DEFAULT_IMAGE = "/static/uploads/Headphones.jpg"
+
+products = [
+    {
+        "id": 1,
+        "name": "Apple",
+        "price": 15.99,
+        "description": "Fresh Apple",
+        "category": "Fruit",
+        "image": DEFAULT_IMAGE,
+    },
+    {
+        "id": 2,
+        "name": "Milk",
+        "price": 12.50,
+        "description": "Fresh Milk",
+        "category": "Dairy",
+        "image": DEFAULT_IMAGE,
+    },
+]
+
+
+@app.route("/")
+def home():
+    return render_template(
+        "index.html",
+        products=products,
+        now=datetime.now(),
+    )
+
+
+@app.route("/product/<int:product_id>")
+def product_detail(product_id):
+    for product in products:
+        if product["id"] == product_id:
+            return render_template(
+                "product_detail.html",
+                product=product,
+            )
+    return "Not Found", 404
+
+
+@app.route("/add", methods=["GET", "POST"])
+def add_product():
+    if request.method == "POST":
+        name = request.form.get("name")
+        price = float(request.form.get("price"))
+        description = request.form.get("description")
+        category = request.form.get("category")
+
+        new_product = {
+            "id": len(products) + 1,
+            "name": name,
+            "price": price,
+            "description": description,
+            "category": category,
+            "image": DEFAULT_IMAGE,
+        }
+
+        products.append(new_product)
+        return redirect(url_for("home"))
+
+    return render_template("add_product.html")
+
+
+@app.route("/go-home")
+def go_home():
+    return redirect(url_for("home"))
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

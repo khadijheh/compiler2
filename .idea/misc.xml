@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ANTLRGenerationPreferences">
+    <option name="perGrammarGenerationSettings">
+      <list>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/ANTLR/firstCompiler/flaskLexer.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="C:\compiler2\ANTLR" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="" />
+          <option name="language" value="" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/ANTLR/firstCompiler/flaskParser.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="C:\compiler2\ANTLR" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="" />
+          <option name="language" value="" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/grammers/flaskLexer.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="" />
+          <option name="language" value="" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/grammers/flaskParser.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="" />
+          <option name="language" value="" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+      </list>
+    </option>
+  </component>
+  <component name="PWA">
+    <option name="wasEnabledAtLeastOnce" value="true" />
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_24" project-jdk-name="24" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+</project>

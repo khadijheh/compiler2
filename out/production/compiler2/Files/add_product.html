@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إضافة منتج جديد</title>
+
+    <!-- خط عربي -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f5f7;
+            color: #333;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            text-decoration: none;
+            background-color: #6c757d;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            display: inline-block;
+            transition: 0.2s;
+        }
+        .back-btn:hover {
+            background-color: #5a6268;
+        }
+
+        form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            margin-bottom: 20px;
+            transition: 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: #4a6fa5;
+            outline: none;
+            box-shadow: 0 0 5px rgba(74,111,165,0.3);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            color: white;
+            transition: 0.2s;
+        }
+
+        .btn-reset {
+            background-color: #95a5a6;
+        }
+        .btn-reset:hover {
+            background-color: #7f8c8d;
+        }
+
+        .btn-submit {
+            background-color: #2ecc71;
+        }
+        .btn-submit:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- العنوان -->
+    <header>
+        <h1>إضافة منتج جديد</h1>
+        <a href="/" class="back-btn">العودة للرئيسية</a>
+    </header>
+
+    <!-- النموذج -->
+    <form method="POST">
+
+        <!-- اسم المنتج -->
+        <label>اسم المنتج</label>
+        <input type="text" name="name" required>
+
+        <!-- السعر -->
+        <label>السعر (دولار)</label>
+        <input type="number" name="price" step="0.01" min="0" required>
+
+        <!-- الوصف -->
+        <label>وصف المنتج</label>
+        <textarea name="description" rows="4" required></textarea>
+
+        <!-- الفئة -->
+        <label>الفئة</label>
+        <select name="category" required>
+            <option value="">اختر الفئة</option>
+            <option value="فواكه">فواكه</option>
+            <option value="خضروات">خضروات</option>
+            <option value="ألبان">ألبان</option>
+            <option value="مشروبات">مشروبات</option>
+            <option value="أدوات">أدوات</option>
+        </select>
+
+        <!-- أزرار -->
+        <div class="btn-row">
+            <button type="reset" class="btn btn-reset">إعادة</button>
+            <button type="submit" class="btn btn-submit">إضافة المنتج</button>
+        </div>
+
+    </form>
+
+</div>
+
+</body>
+</html>
