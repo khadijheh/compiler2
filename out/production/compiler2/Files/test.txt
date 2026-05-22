@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, url_for
 
-app = Flask(__name__)
+app = Flask(__nam__)
 
 
 DEFAULT_IMAGE = "/static/uploads/Headphones.jpg"
@@ -29,7 +29,7 @@ products = [
 @app.route("/")
 def home():
     return render_template(
-        "index.html",
+        "indexcc.html",
         products=products,
         now=datetime.now(),
     )
@@ -45,7 +45,7 @@ def product_detail(product_id):
         if product["id"] == product_id:
             return render_template(
                 "product_details.html",
-                product=product,
+                product=productnn,
             )
 
     return "Not Found", 404
