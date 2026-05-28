@@ -1,28 +1,56 @@
 package semantic;
 
 import AST.*;
+import AST_H_C.Node;
+import SymbolTable.WebSymbol;
+import visitor.WebSymbolTableVisitor;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+/**
+ * SemanticAnalyzerVisitor — Full Semantic Analysis Pass
+ * ======================================================
+ * <p>
+ * Checks performed:
+ * 1  Undefined variables / undeclared function calls
+ * 2  Duplicate declarations (variables and functions)
+ * 3  Scope errors (local vs global)
+ * 4  Type mismatch in assignments and binary expressions
+ * 5  Function arity mismatch
+ * 6  Function argument type mismatch
+ * 7  Return type mismatch / return outside function
+ * 8  Subscript on non-subscriptable type
+ * 9  Attribute access on None / primitive types
+ * 10  Non-iterable in for-loop
+ * 11  Literal used as if-condition
+ * 12  Unsafe type conversion from request.form input
+ * 13  Template path error  (render_template file not found)
+ * 14  Missing Flask variable (Jinja var not passed to template)
+ * 15  Missing Flask import
+ * 16  Route parameter mismatch  ← NEW (FIX 3)
+ * 17  Duplicate route path
+ * 18  Invalid HTTP method in @app.route
+ */
 public class SemanticAnalyzerVisitor {
 
     private final ScopeManager scopes;
     private final List<SemanticError> errors = new ArrayList<>();
-
-    private final Map<String, String> registeredRoutes = new HashMap<>();
+    private final Set<String> reportedErrors = new HashSet<>();
 
     private int functionDepth = 0;
-
+    private final Deque<String> currentFunctionName = new ArrayDeque<>();
     private final Map<String, Integer> functionParamCount = new HashMap<>();
-
     private final Map<String, String> functionParamTypes = new HashMap<>();
-
     private final Map<String, String> functionReturnType = new HashMap<>();
 
-    private final Deque<String> currentFunctionName = new ArrayDeque<>();
+    private final Map<String, String> registeredRoutes = new LinkedHashMap<>();
+
+    private final Map<String, List<String>> routeDynamicParams = new LinkedHashMap<>();
 
     private final String templateDirectory;
 
@@ -30,14 +58,12 @@ public class SemanticAnalyzerVisitor {
 
     private final Map<String, Set<String>> templateJinjaVars = new LinkedHashMap<>();
 
-    private final Set<String> templateLoopIterators = new HashSet<>();
 
-    private final Map<String, Set<String>> templatePassedVars = new LinkedHashMap<>();
+    private final Map<String, Set<String>> templateLoopIterators = new LinkedHashMap<>();
 
+    private final Map<String, List<Set<String>>> templatePassedVarsPerCall
+            = new LinkedHashMap<>();
     private final Set<String> externalInputVars = new HashSet<>();
-
-
-    private final Set<String> reportedErrors = new HashSet<>();
 
     public SemanticAnalyzerVisitor(ScopeManager scopes) {
         this(scopes, "Files");
@@ -48,21 +74,67 @@ public class SemanticAnalyzerVisitor {
         this.templateDirectory = templateDirectory;
     }
 
-
     public void analyse(AstNode root) {
-        boolean hasImportNode = containsImportStatement(root);
-        if (!hasImportNode) {
-            scopes.assumeFlaskImported();
+        if (!containsImportStatement(root)) {
+            scopes.suppressFlaskImportCheck();
         }
 
         visit(root);
 
         verifyTemplateFilesExist();
-
         verifyJinjaVariablesPassed();
+
+        verifyRouteParameterMatch();
 
         printReport();
     }
+
+    public void analyse(AstNode root, WebSymbolTableVisitor webSTV) {
+        ingestWebSymbols(webSTV);
+        analyse(root);
+    }
+
+    public List<SemanticError> getErrors() {
+        return Collections.unmodifiableList(errors);
+    }
+
+    private void ingestWebSymbols(WebSymbolTableVisitor webSTV) {
+        for (WebSymbol sym : WebSymbolTableVisitor.webSymbols) {
+            String file = sym.fileName;   // template filename (may include path)
+
+            try {
+                file = java.nio.file.Paths.get(file).getFileName().toString();
+            } catch (Exception ignored) {
+            }
+            String name = sym.name;
+            String type = sym.type;
+
+            if (isTemplateBuiltin(name)) continue;
+
+            switch (type) {
+                case "JINJA_LOOP_ITER":
+                    templateLoopIterators
+                            .computeIfAbsent(file, k -> new LinkedHashSet<>())
+                            .add(name);
+                    break;
+
+                case "JINJA_VAR":
+                case "JINJA_ITER":
+                    Set<String> iters = templateLoopIterators
+                            .getOrDefault(file, Collections.emptySet());
+                    if (!iters.contains(name)) {
+                        templateJinjaVars
+                                .computeIfAbsent(file, k -> new LinkedHashSet<>())
+                                .add(name);
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
 
     private boolean containsImportStatement(AstNode node) {
         if (node == null) return false;
@@ -73,120 +145,127 @@ public class SemanticAnalyzerVisitor {
         return false;
     }
 
+
     private void verifyTemplateFilesExist() {
         for (Map.Entry<String, Integer> entry : referencedTemplates.entrySet()) {
             String templateFile = entry.getKey();
             int line = entry.getValue();
-
             String fullPath = templateDirectory + File.separator + templateFile;
+
             if (!Files.exists(Paths.get(fullPath))) {
                 reportError(
-                        "Missing Flask variable: template file '" + templateFile
-                                + "' referenced in render_template() does not exist at path '"
+                        "Template path error: file '" + templateFile
+                                + "' referenced in render_template() does not exist at '"
                                 + fullPath + "'. "
                                 + "Ensure the file is in the correct templates directory.",
                         line);
-            } else {
-                // Template exists — scan it for Jinja variables
-                scanTemplateForJinjaVars(templateFile, fullPath);
+            } else if (!templateJinjaVars.containsKey(templateFile)) {
+                scanTemplateViaAst(templateFile, fullPath);
             }
         }
     }
 
 
-    private void scanTemplateForJinjaVars(String templateFile, String fullPath) {
-        Set<String> vars = new LinkedHashSet<>();
+    private void scanTemplateViaAst(String templateFile, String fullPath) {
         try {
-            String content = Files.readString(Paths.get(fullPath));
+            String htmlCode = Files.readString(Paths.get(fullPath));
 
-            java.util.regex.Matcher forMatcher = java.util.regex.Pattern
-                    .compile("\\{%[-\\s]*for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+in")
-                    .matcher(content);
-            while (forMatcher.find()) {
-                String loopVar = forMatcher.group(1);
-                templateLoopIterators.add(loopVar);
-            }
+            grammers.htmlLexer lexer = new grammers.htmlLexer(
+                    org.antlr.v4.runtime.CharStreams.fromString(htmlCode));
+            grammers.htmlParser parser = new grammers.htmlParser(
+                    new org.antlr.v4.runtime.CommonTokenStream(lexer));
+            visitor.HtmlVisitor htmlVisitor = new visitor.HtmlVisitor();
+            Node htmlAst = htmlVisitor.visitHtmlDocument(parser.htmlDocument());
 
-            java.util.regex.Matcher exprMatcher = java.util.regex.Pattern
-                    .compile("\\{\\{\\s*([a-zA-Z_][a-zA-Z0-9_]*)")
-                    .matcher(content);
-            while (exprMatcher.find()) {
-                String varName = exprMatcher.group(1);
-                if (!isTemplateBuiltin(varName) && !templateLoopIterators.contains(varName)) {
-                    vars.add(varName);
-                }
-            }
+            WebSymbolTableVisitor tmpSTV = new WebSymbolTableVisitor(templateFile);
+            tmpSTV.build(htmlAst);
+            ingestWebSymbols(tmpSTV);
 
-            // Match {% if var %} patterns
-            java.util.regex.Matcher ifMatcher = java.util.regex.Pattern
-                    .compile("\\{%[-\\s]*if\\s+([a-zA-Z_][a-zA-Z0-9_]*)")
-                    .matcher(content);
-            while (ifMatcher.find()) {
-                String varName = ifMatcher.group(1);
-                // Skip builtins and loop iterators
-                if (!isTemplateBuiltin(varName) && !templateLoopIterators.contains(varName)) {
-                    vars.add(varName);
-                }
-            }
+            WebSymbolTableVisitor.webSymbols.clear();
 
-            // Also extract iterable names from {% for var in ITERABLE %}
-            // The iterable must be passed from Flask
-            java.util.regex.Matcher iterMatcher = java.util.regex.Pattern
-                    .compile("\\{%[-\\s]*for\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+in\\s+([a-zA-Z_][a-zA-Z0-9_]*)")
-                    .matcher(content);
-            while (iterMatcher.find()) {
-                String iterName = iterMatcher.group(1);
-                if (!isTemplateBuiltin(iterName)) {
-                    vars.add(iterName);
-                }
-            }
-
-            templateJinjaVars.put(templateFile, vars);
         } catch (Exception e) {
+
         }
     }
 
-
-    private boolean isTemplateBuiltin(String name) {
-        return Set.of("range", "lipsum", "dict", "cycler", "joiner", "namespace",
-                "true", "false", "none", "True", "False", "None",
-                "loop", "block", "endblock", "extends", "include",
-                "set", "import", "from", "as", "do", "macro", "call",
-                "filter", "endfilter", "raw", "endraw").contains(name);
-    }
 
     private void verifyJinjaVariablesPassed() {
         for (Map.Entry<String, Set<String>> entry : templateJinjaVars.entrySet()) {
             String templateFile = entry.getKey();
-            Set<String> requiredVars = entry.getValue();
-            Set<String> passedVars = templatePassedVars.getOrDefault(
-                    templateFile, Collections.emptySet());
+            Set<String> required = entry.getValue();
+            Set<String> loopIters = templateLoopIterators
+                    .getOrDefault(templateFile, Collections.emptySet());
 
-            for (String var : requiredVars) {
-                if (templateLoopIterators.contains(var)) {
+            List<Set<String>> callSnapshots = templatePassedVarsPerCall
+                    .getOrDefault(templateFile, Collections.emptyList());
+
+            for (String var : required) {
+                if (loopIters.contains(var)) continue; // loop var — skip
+
+                if (callSnapshots.isEmpty()) {
+                    int line = referencedTemplates.getOrDefault(templateFile, 0);
+                    reportError(
+                            "Missing Flask variable: '" + var
+                                    + "' is used in template '" + templateFile
+                                    + "' but render_template() was never called for this template.",
+                            line);
                     continue;
                 }
 
-                if (!passedVars.contains(var)) {
-                    int line = referencedTemplates.getOrDefault(templateFile, 0);
-                    reportError(
-                            "Missing Flask variable: Jinja variable '" + var
-                                    + "' is used in template '" + templateFile
-                                    + "' but is not passed in render_template() call. "
-                                    + "Add '" + var + "=<value>' to the render_template() arguments.",
-                            line);
+                for (int i = 0; i < callSnapshots.size(); i++) {
+                    Set<String> snapshot = callSnapshots.get(i);
+
+
+                    String root = var.split("\\|")[0].split("\\.")[0];
+
+                    boolean satisfied = snapshot.contains(var)
+                            || snapshot.contains(root)
+                            || snapshot.contains(root + "s"); // simple plural heuristic
+
+                    if (!satisfied) {
+                        int line = referencedTemplates.getOrDefault(templateFile, 0);
+                        reportError(
+                                "Missing Flask variable: Jinja variable '" + var
+                                        + "' is used in template '" + templateFile
+                                        + "' but is not passed in render_template() call #"
+                                        + (i + 1) + ". "
+                                        + "Add '" + var + "=<value>' to that render_template() call.",
+                                line);
+                    }
                 }
             }
         }
     }
 
 
+    private static final Pattern ROUTE_PARAM_PATTERN =
+            Pattern.compile("<(?:[a-zA-Z_][a-zA-Z0-9_]*:)?([a-zA-Z_][a-zA-Z0-9_]*)>");
+
+    private void verifyRouteParameterMatch() {
+        for (Map.Entry<String, List<String>> entry : routeDynamicParams.entrySet()) {
+            String funcName = entry.getKey();
+            List<String> routeParams = entry.getValue();
+
+            if (routeParams.isEmpty()) continue;
+
+
+
+            if (!functionParamCount.containsKey(funcName)) {
+                int line = 0;
+                reportError(
+                        "Route parameter mismatch: @app.route with dynamic segment(s) "
+                                + routeParams + " was found but the view function '"
+                                + funcName + "' was never defined.",
+                        line);
+            }
+        }
+    }
+
     private void printReport() {
         System.out.println();
-        int w = 64;
-        String bar = "═".repeat(w);
+        final int w = 68;
+        final String bar = "═".repeat(w);
 
-        // Separate errors and warnings
         List<SemanticError> errorList = new ArrayList<>();
         List<SemanticError> warningList = new ArrayList<>();
         for (SemanticError e : errors) {
@@ -199,64 +278,50 @@ public class SemanticAnalyzerVisitor {
             System.out.printf("║  %-" + (w - 2) + "s║%n",
                     "✔  Semantic Analysis passed with 0 error(s)");
             System.out.println("╚" + bar + "╝");
-        } else {
-            // ── Print WARNINGS first (non-fatal) ─────────────────────── //
-            if (!warningList.isEmpty()) {
-                System.out.println("╔" + bar + "╗");
-                System.out.printf("║  %-" + (w - 2) + "s║%n",
-                        "⚠  Semantic Analysis found " + warningList.size() + " warning(s)");
-                System.out.println("╠" + bar + "╣");
+            return;
+        }
+        if (!warningList.isEmpty()) {
+            System.out.println("╔" + bar + "╗");
+            System.out.printf("║  %-" + (w - 2) + "s║%n",
+                    "⚠  Semantic Analysis found " + warningList.size() + " warning(s)");
+            System.out.println("╠" + bar + "╣");
+            printEntries(warningList, w);
+            System.out.println("╚" + bar + "╝");
+            System.out.println();
+        }
 
-                for (int i = 0; i < warningList.size(); i++) {
-                    String msg = String.format("#%-2d  %s", i + 1, warningList.get(i).getMessage());
-                    int chunk = w - 4;
-                    for (int pos = 0; pos < msg.length(); pos += chunk) {
-                        String part = msg.substring(pos, Math.min(pos + chunk, msg.length()));
-                        System.out.printf("║  %-" + (w - 2) + "s║%n", part);
-                    }
-                    if (i < warningList.size() - 1) {
-                        System.out.println("╟" + "─".repeat(w) + "╢");
-                    }
-                }
-                System.out.println("╚" + bar + "╝");
-                System.out.println();
+        if (!errorList.isEmpty()) {
+            System.out.println("╔" + bar + "╗");
+            System.out.printf("║  %-" + (w - 2) + "s║%n",
+                    "✘  Semantic Analysis found " + errorList.size() + " error(s)");
+            System.out.println("╠" + bar + "╣");
+            printEntries(errorList, w);
+            System.out.println("╚" + bar + "╝");
+
+            throw new SemanticError(
+                    errorList.size() + " semantic error(s) — see report above.", 0);
+        }
+        System.out.println("[Semantic Analysis] "
+                + warningList.size() + " warning(s) — compilation continues.");
+    }
+
+    private void printEntries(List<SemanticError> list, int w) {
+        int chunk = w - 4;
+        for (int i = 0; i < list.size(); i++) {
+            String msg = String.format("#%-2d  %s", i + 1, list.get(i).getMessage());
+            for (int pos = 0; pos < msg.length(); pos += chunk) {
+                String part = msg.substring(pos, Math.min(pos + chunk, msg.length()));
+                System.out.printf("║  %-" + (w - 2) + "s║%n", part);
             }
-
-            // ── Print ERRORS (fatal) ───────────────────────────────── //
-            if (!errorList.isEmpty()) {
-                System.out.println("╔" + bar + "╗");
-                System.out.printf("║  %-" + (w - 2) + "s║%n",
-                        "✘  Semantic Analysis found " + errorList.size() + " error(s)");
-                System.out.println("╠" + bar + "╣");
-
-                for (int i = 0; i < errorList.size(); i++) {
-                    String msg = String.format("#%-2d  %s", i + 1, errorList.get(i).getMessage());
-                    int chunk = w - 4;
-                    for (int pos = 0; pos < msg.length(); pos += chunk) {
-                        String part = msg.substring(pos, Math.min(pos + chunk, msg.length()));
-                        System.out.printf("║  %-" + (w - 2) + "s║%n", part);
-                    }
-                    if (i < errorList.size() - 1) {
-                        System.out.println("╟" + "─".repeat(w) + "╢");
-                    }
-                }
-                System.out.println("╚" + bar + "╝");
-
-                // Only ERROR severity halts compilation
-                throw new SemanticError(
-                        errorList.size() + " semantic error(s) — see report above.", 0);
-            }
-
-            // Only warnings — compilation continues
-            System.out.println("[Semantic Analysis] " + warningList.size()
-                    + " warning(s) detected — compilation continues.");
+            if (i < list.size() - 1)
+                System.out.println("╟" + "─".repeat(w) + "╢");
         }
     }
+
 
     private String visit(AstNode node) {
         if (node == null) return "Any";
 
-        // ── Statements ───────────────────────────────────────────────── //
         if (node instanceof Program) return visitProgram((Program) node);
         if (node instanceof FunctionDef) return visitFunctionDef((FunctionDef) node);
         if (node instanceof Assign) return visitAssign((Assign) node);
@@ -264,26 +329,23 @@ public class SemanticAnalyzerVisitor {
         if (node instanceof ForStatement) return visitForStatement((ForStatement) node);
         if (node instanceof ReturnStatement) return visitReturnStatement((ReturnStatement) node);
         if (node instanceof ImportStatement) return visitImportStatement((ImportStatement) node);
-
-        // ── Expressions ──────────────────────────────────────────────── //
         if (node instanceof BinaryExpression) return visitBinaryExpression((BinaryExpression) node);
         if (node instanceof Identifier) return visitIdentifier((Identifier) node);
         if (node instanceof FunctionCall) return visitFunctionCall((FunctionCall) node);
         if (node instanceof AttributeAccess) return visitAttributeAccess((AttributeAccess) node);
         if (node instanceof Subscript) return visitSubscript((Subscript) node);
 
-        // ── Literals ─────────────────────────────────────────────────── //
         if (node instanceof NumberLiteral) return inferNumberType((NumberLiteral) node);
         if (node instanceof StringLiteral) return "String";
         if (node instanceof BooleanLiteral) return "Bool";
         if (node instanceof NoneLiteral) return "None";
         if (node instanceof ListLiteral) return visitListLiteral((ListLiteral) node);
         if (node instanceof DictLiteral) return visitDictLiteral((DictLiteral) node);
-        if (node instanceof KeywordArgument) return visit(((KeywordArgument) node).getValue());
+        if (node instanceof KeywordArgument)
+            return visit(((KeywordArgument) node).getValue());
 
         if (node instanceof Decorator) return visitDecorator((Decorator) node);
 
-        // ── Generic fallthrough ──────────────────────────────────────── //
         for (AstNode child : node.getChildren()) visit(child);
         return "Any";
     }
@@ -293,13 +355,11 @@ public class SemanticAnalyzerVisitor {
         return "void";
     }
 
-
     private String visitFunctionDef(FunctionDef node) {
         String name = node.getName();
         int line = node.getLine();
-        String returnType = node.getReturnType();
+        String returnType = node.getReturnType() != null ? node.getReturnType() : "Any";
 
-        // ── CHECK 2: Duplicate function declaration ───────────────────── //
         if (scopes.isDefinedLocally(name)) {
             reportError(
                     "Duplicate declaration: function '" + name
@@ -307,22 +367,31 @@ public class SemanticAnalyzerVisitor {
                             + scopes.currentScopeName() + "'.",
                     line);
         }
-
         scopes.define(name, "Function", returnType, line);
 
         int paramCount = node.getParameters() != null ? node.getParameters().size() : 0;
         functionParamCount.put(name, paramCount);
         functionReturnType.put(name, returnType);
 
-        // ── CHECK 3: Enter function scope ────────────────────────────── //
+        currentFunctionName.push(name);
+
+        for (AstNode child : node.getChildren()) {
+            if (child instanceof Decorator) {
+                visit(child);
+            }
+        }
+
         scopes.enterScope("Function(" + name + ")");
         functionDepth++;
-        currentFunctionName.push(name);
+
+        List<String> paramNames = new ArrayList<>();
 
         if (node.getParameters() != null) {
             for (int i = 0; i < node.getParameters().size(); i++) {
                 String param = node.getParameters().get(i);
                 String paramType = node.getParamType(i);
+
+                paramNames.add(param);
 
                 if (scopes.isDefinedLocally(param)) {
                     reportError(
@@ -346,13 +415,35 @@ public class SemanticAnalyzerVisitor {
                     + name + "()' : " + returnType);
         }
 
+        List<String> dynamicSegments = routeDynamicParams.getOrDefault(
+                name, Collections.emptyList());
+        for (String seg : dynamicSegments) {
+            if (!paramNames.contains(seg)) {
+                reportError(
+                        "Route parameter mismatch: dynamic segment '<" + seg
+                                + ">' appears in the @app.route path for function '"
+                                + name + "' but '" + seg
+                                + "' is not declared as a parameter of that function. "
+                                + "Add '" + seg + "' to the function signature: "
+                                + "def " + name + "(..., " + seg + ", ...).",
+                        line);
+            }
+        }
+        for (String param : paramNames) {
+            if (!dynamicSegments.isEmpty() && !dynamicSegments.contains(param)) {
+                reportWarning(
+                        "Route parameter mismatch: parameter '" + param
+                                + "' of function '" + name
+                                + "' does not match any dynamic segment in its @app.route path "
+                                + dynamicSegments + ". "
+                                + "Remove the parameter or add the corresponding '<"
+                                + param + ">' segment to the route.",
+                        line);
+            }
+        }
+
         if (node.getBody() != null) {
             for (AstNode stmt : node.getBody()) visit(stmt);
-        }
-        for (AstNode child : node.getChildren()) {
-            if (child instanceof Decorator) {
-                visit(child);
-            }
         }
         functionDepth--;
         currentFunctionName.pop();
@@ -374,7 +465,6 @@ public class SemanticAnalyzerVisitor {
             int idLine = id.getLine();
 
             ScopeManager.TypeInfo existing = scopes.lookup(idName);
-
             if (existing != null) {
                 if (!typesCompatible(existing.type, rhsType)) {
                     reportError(
@@ -389,21 +479,14 @@ public class SemanticAnalyzerVisitor {
                 scopes.define(idName, "Variable", rhsType, idLine);
             }
 
-            // ── Track external input variables ─────────────────────── //
-            // If RHS is a call to request.form.get(), mark this var as
-            // external input so we can warn about unsafe conversions later.
             if (right instanceof FunctionCall) {
                 markExternalInput(idName, (FunctionCall) right);
-            } else if (right instanceof AttributeAccess) {
-                // e.g. request.form (the .get call is on the next trailer)
             }
-
         } else {
             visit(left);
         }
         return "void";
     }
-
 
     private void markExternalInput(String varName, FunctionCall call) {
         if (call.getChildren().isEmpty()) return;
@@ -411,11 +494,11 @@ public class SemanticAnalyzerVisitor {
 
         if (callee instanceof AttributeAccess) {
             AttributeAccess attr = (AttributeAccess) callee;
-            if (attr.getAttributeName().equals("get")) {
+            if ("get".equals(attr.getAttributeName())) {
                 AstNode target = attr.getTarget();
                 if (target instanceof AttributeAccess) {
-                    AttributeAccess innerAttr = (AttributeAccess) target;
-                    if (innerAttr.getAttributeName().equals("form")) {
+                    AttributeAccess inner = (AttributeAccess) target;
+                    if ("form".equals(inner.getAttributeName())) {
                         externalInputVars.add(varName);
                     }
                 }
@@ -423,30 +506,28 @@ public class SemanticAnalyzerVisitor {
         }
     }
 
+
     private String visitIfStatement(IfStatement node) {
         List<AstNode> allChildren = node.getChildren();
         if (allChildren.isEmpty()) return "void";
 
-        AstNode firstChild = allChildren.get(0);
-        boolean firstIsBody = node.getIfBody().contains(firstChild);
+        AstNode condition = allChildren.get(0);
 
-        if (!firstIsBody) {
-            if (firstChild instanceof NumberLiteral) {
+        if (condition != null) {
+            if (condition instanceof NumberLiteral) {
                 reportError(
                         "Condition type error: numeric literal '"
-                                + ((NumberLiteral) firstChild).getValue()
+                                + ((NumberLiteral) condition).getValue()
                                 + "' used directly as if-condition. "
                                 + "Did you mean a comparison expression?",
-                        firstChild.getLine());
-            } else if (firstChild instanceof StringLiteral) {
-                // Parser limitation — not flagged
+                        condition.getLine());
             } else {
-                String condType = visit(firstChild);
-                if (condType.equals("None")) {
+                String condType = visit(condition);
+                if ("None".equals(condType)) {
                     reportError(
                             "Condition type error: condition evaluates to 'None', "
                                     + "which is always False. Check your logic.",
-                            firstChild.getLine());
+                            condition.getLine());
                 }
             }
         }
@@ -455,15 +536,10 @@ public class SemanticAnalyzerVisitor {
         for (AstNode stmt : node.getIfBody()) visit(stmt);
         scopes.exitScope();
 
-        int startIdx = firstIsBody ? 0 : 1;
-        for (int i = startIdx; i < allChildren.size(); i++) {
-            AstNode child = allChildren.get(i);
-            if (node.getIfBody().contains(child)) continue;
-
+        for (AstNode child : allChildren) {
+            if (node.getIfBody().contains(child) || child == condition) continue;
             scopes.enterScope(child.getNodeName() + "@L" + child.getLine());
-            for (AstNode stmt : child.getChildren()) {
-                visit(stmt);
-            }
+            for (AstNode stmt : child.getChildren()) visit(stmt);
             scopes.exitScope();
         }
         return "void";
@@ -476,7 +552,6 @@ public class SemanticAnalyzerVisitor {
 
         String iterableType = visit(iterableNode);
 
-        // ── CHECK 10: Loop / iterable validation ─────────────────────── //
         if (!isIterable(iterableType)) {
             reportError(
                     "Loop validation error: cannot iterate over type '"
@@ -485,15 +560,12 @@ public class SemanticAnalyzerVisitor {
                     node.getLine());
         }
 
-
         scopes.enterScope("For@L" + node.getLine());
         scopes.define(node.getIteratorId(), "Variable", "Any", node.getLine());
-
         for (AstNode stmt : node.getBody()) visit(stmt);
         scopes.exitScope();
         return "void";
     }
-
 
     private String visitReturnStatement(ReturnStatement node) {
         int line = node.getLine();
@@ -515,8 +587,8 @@ public class SemanticAnalyzerVisitor {
             String enclosing = currentFunctionName.peek();
             String declaredType = functionReturnType.getOrDefault(enclosing, "Any");
 
-            if (!declaredType.equals("Any")
-                    && !returnedType.equals("Any")
+            if (!"Any".equals(declaredType)
+                    && !"Any".equals(returnedType)
                     && !typesCompatible(declaredType, returnedType)) {
                 reportError(
                         "Return type mismatch in function '" + enclosing
@@ -526,10 +598,8 @@ public class SemanticAnalyzerVisitor {
                         line);
             }
         }
-
         return "void";
     }
-
 
     private String visitImportStatement(ImportStatement node) {
         List<String> importedNames = new ArrayList<>();
@@ -550,10 +620,8 @@ public class SemanticAnalyzerVisitor {
         String leftType = visit(leftChild);
         String rightType = visit(rightChild);
 
-
         if (isComparisonOp(operator) || isLogicalOp(operator)) {
-
-            if (leftType.equals("None") || rightType.equals("None")) {
+            if ("None".equals(leftType) || "None".equals(rightType)) {
                 reportError(
                         "Type error: comparing with 'None' using '" + operator
                                 + "' may lead to unexpected behavior. "
@@ -563,33 +631,24 @@ public class SemanticAnalyzerVisitor {
             return "Bool";
         }
 
-        // ── ENHANCED: Check for Int + String or String + Int ────────── //
-        // e.g. 22 + "kh" → Type Mismatch Error
         if (operator.equals("+")) {
-            boolean leftIsString = leftType.equals("String");
-            boolean rightIsString = rightType.equals("String");
-            boolean leftIsNumeric = leftType.equals("Int") || leftType.equals("Float");
-            boolean rightIsNumeric = rightType.equals("Int") || rightType.equals("Float");
+            boolean leftIsString = "String".equals(leftType);
+            boolean rightIsString = "String".equals(rightType);
+            boolean leftIsNumeric = "Int".equals(leftType) || "Float".equals(leftType);
+            boolean rightIsNumeric = "Int".equals(rightType) || "Float".equals(rightType);
 
-            if (leftIsString && rightIsString) {
-                // String + String = concatenation → OK
-                return "String";
-            }
+            if (leftIsString && rightIsString) return "String"; // OK: concat
 
-            if ((leftIsString && rightIsNumeric) || (leftIsNumeric && leftIsString)) {
-                // WAIT: we need to check the CORRECT sides
-                // leftIsString && rightIsNumeric: "kh" + 22
-                // leftIsNumeric && rightIsString: 22 + "kh"
-            }
-
-            // Correct check for Int/Float + String or String + Int/Float
             if ((leftIsNumeric && rightIsString) || (leftIsString && rightIsNumeric)) {
-                // ── TYPE MISMATCH: 22 + "kh" ───────────────────────── //
                 String example = leftIsNumeric
-                        ? leftType + " + \"" + (rightChild instanceof StringLiteral
-                        ? ((StringLiteral) rightChild).getValue() : "String") + "\""
-                        : "\"" + (leftChild instanceof StringLiteral
-                        ? ((StringLiteral) leftChild).getValue() : "String") + "\" + " + rightType;
+                        ? leftType + " + \""
+                        + (rightChild instanceof StringLiteral
+                        ? ((StringLiteral) rightChild).getValue() : "String")
+                        + "\""
+                        : "\""
+                        + (leftChild instanceof StringLiteral
+                        ? ((StringLiteral) leftChild).getValue() : "String")
+                        + "\" + " + rightType;
 
                 reportError(
                         "Type mismatch: cannot use operator '+' with '"
@@ -603,18 +662,16 @@ public class SemanticAnalyzerVisitor {
             }
         }
 
-        // ── Generic type compatibility check (non-arithmetic, non-comparison) ── //
         if (!isArithmeticOp(operator) && !typesCompatible(leftType, rightType)) {
             reportError(
                     "Type mismatch: incompatible types '" + leftType
-                            + "' and '" + rightType + "' for operator '" + operator + "'.",
+                            + "' and '" + rightType
+                            + "' for operator '" + operator + "'.",
                     node.getLine());
         }
 
         if (isArithmeticOp(operator)) {
-
-            // ── CHECK 4a: Bool in arithmetic ─────────────────────────── //
-            if (leftType.equals("Bool") || rightType.equals("Bool")) {
+            if ("Bool".equals(leftType) || "Bool".equals(rightType)) {
                 reportError(
                         "Type error: 'Bool' cannot be used in arithmetic expression ("
                                 + leftType + " " + operator + " " + rightType + "). "
@@ -622,11 +679,8 @@ public class SemanticAnalyzerVisitor {
                         node.getLine());
                 return "Any";
             }
-
-            // ── CHECK 4b: String in non-concat arithmetic ─────────────── //
-            // Only applies for operators other than +, since + is handled above
             if (!operator.equals("+")) {
-                if (leftType.equals("String") || rightType.equals("String")) {
+                if ("String".equals(leftType) || "String".equals(rightType)) {
                     reportError(
                             "Type error: 'String' cannot be used with operator '"
                                     + operator + "' ("
@@ -636,9 +690,7 @@ public class SemanticAnalyzerVisitor {
                     return "Any";
                 }
             }
-
-            // ── NEW: None in arithmetic → error ────────────────────── //
-            if (leftType.equals("None") || rightType.equals("None")) {
+            if ("None".equals(leftType) || "None".equals(rightType)) {
                 reportError(
                         "Type error: 'None' cannot be used in arithmetic expression ("
                                 + leftType + " " + operator + " " + rightType + "). "
@@ -646,22 +698,20 @@ public class SemanticAnalyzerVisitor {
                         node.getLine());
                 return "Any";
             }
-
-            // Float is contagious (Int + Float → Float).
-            if (leftType.equals("Float") || rightType.equals("Float")) return "Float";
-            if (leftType.equals("Int") && rightType.equals("Int")) return "Int";
+            if ("Float".equals(leftType) || "Float".equals(rightType)) return "Float";
+            if ("Int".equals(leftType) && "Int".equals(rightType)) return "Int";
             return "Any";
         }
 
         return "Any";
     }
 
+
     private String visitIdentifier(Identifier node) {
         String name = node.getName();
         ScopeManager.TypeInfo info = scopes.lookup(name);
 
         if (info == null) {
-            // ── UNDEFINED ERROR ──────────────────────────────────────── //
             reportError(
                     "Undefined error: identifier '" + name
                             + "' is used before it is declared. "
@@ -670,21 +720,18 @@ public class SemanticAnalyzerVisitor {
             return "Any";
         }
 
-        // ── CHECK: Flask API used without import ─────────────────────── //
-        if (info.kind.equals("FlaskAPI") && !scopes.isFlaskImported()) {
+        if ("FlaskAPI".equals(info.kind)
+                && !scopes.isImportCheckSuppressed()
+                && !scopes.isFlaskNameImported(name)) {
             reportError(
                     "Missing Flask import: '" + name
                             + "' is a Flask API name but 'from flask import " + name
-                            + "' was never written. Add the import at the top of the file.",
+                            + "' was never written. Add the import statement at the top of the file.",
                     node.getLine());
         }
 
-        // ── CHECK 12: Variable from external input used in type conversion ── //
-        // This is checked at the FunctionCall level instead.
-
         return info.type;
     }
-
 
     private String visitFunctionCall(FunctionCall node) {
         if (node.getChildren().isEmpty()) return "Any";
@@ -696,7 +743,17 @@ public class SemanticAnalyzerVisitor {
             calleeName = ((Identifier) callee).getName();
             ScopeManager.TypeInfo info = scopes.lookup(calleeName);
 
-            // ── CHECK 1: Undeclared function ─────────────────────────── //
+            if (info != null
+                    && "FlaskAPI".equals(info.kind)
+                    && !scopes.isImportCheckSuppressed()
+                    && !scopes.isFlaskNameImported(calleeName)) {
+                reportError(
+                        "Missing Flask import: '" + calleeName
+                                + "' is a Flask API function but 'from flask import "
+                                + calleeName + "' was never written.",
+                        node.getLine());
+            }
+
             if (info == null) {
                 reportError(
                         "Undefined error: call to undeclared function '"
@@ -706,17 +763,14 @@ public class SemanticAnalyzerVisitor {
             }
         } else {
             visit(callee);
-            // Try to extract callee name from AttributeAccess for render_template etc.
             calleeName = extractCalleeName(callee);
         }
 
-        // Gather argument nodes (children 1 .. n).
         List<AstNode> argNodes = new ArrayList<>();
         for (int i = 1; i < node.getChildren().size(); i++) {
             argNodes.add(node.getChildren().get(i));
         }
 
-        // ── CHECK 5: Argument count mismatch ─────────────────────────── //
         if (calleeName != null && functionParamCount.containsKey(calleeName)) {
             int expected = functionParamCount.get(calleeName);
             int actual = argNodes.size();
@@ -729,41 +783,29 @@ public class SemanticAnalyzerVisitor {
             }
         }
 
-        // ── CHECK 6: Argument type mismatch ──────────────────────────── //
         for (int i = 0; i < argNodes.size(); i++) {
             String argType = visit(argNodes.get(i));
-
             if (calleeName != null) {
                 String paramType = functionParamTypes.get(calleeName + "#" + i);
-
                 if (paramType != null
-                        && !paramType.equals("Any")
-                        && !argType.equals("Any")
+                        && !"Any".equals(paramType)
+                        && !"Any".equals(argType)
                         && !typesCompatible(paramType, argType)) {
                     reportError(
                             "Argument type mismatch: argument " + (i + 1)
                                     + " of function '" + calleeName
                                     + "' expects type '" + paramType
-                                    + "' but received '" + argType
-                                    + "'. Check the call at this line.",
+                                    + "' but received '" + argType + "'.",
                             argNodes.get(i).getLine());
                 }
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════ //
-        //  CHECK 12: Type conversion validation                             //
-        //  Detect unsafe calls like float(request.form.get("price"))       //
-        // ═══════════════════════════════════════════════════════════════ //
         if (calleeName != null && isTypeConversionFunction(calleeName)) {
             checkTypeConversionSafety(calleeName, argNodes, node.getLine());
         }
 
-        // ═══════════════════════════════════════════════════════════════ //
-        //  CHECK 13 + 15: render_template validation                       //
-        //  Verify template file exists and Jinja vars are passed           //
-        // ═══════════════════════════════════════════════════════════════ //
-        if (calleeName != null && calleeName.equals("render_template")) {
+        if ("render_template".equals(calleeName)) {
             checkRenderTemplateCall(argNodes, node.getLine());
         }
 
@@ -771,230 +813,15 @@ public class SemanticAnalyzerVisitor {
     }
 
     private String extractCalleeName(AstNode callee) {
-        if (callee instanceof Identifier) {
-            return ((Identifier) callee).getName();
-        }
-        if (callee instanceof AttributeAccess) {
+        if (callee instanceof Identifier) return ((Identifier) callee).getName();
+        if (callee instanceof AttributeAccess)
             return ((AttributeAccess) callee).getAttributeName();
-        }
         return null;
     }
-
-
-    private boolean isTypeConversionFunction(String name) {
-        return name.equals("float") || name.equals("int")
-                || name.equals("bool") || name.equals("str")
-                || name.equals("list") || name.equals("dict");
-    }
-
-    private void checkTypeConversionSafety(String funcName, List<AstNode> args, int line) {
-        if (args.isEmpty()) return;
-
-        // str() is always safe — no warning needed
-        if (funcName.equals("str")) return;
-
-        AstNode firstArg = args.get(0);
-
-        // Check if the argument is a call to request.form.get()
-        // This is the MOST DANGEROUS pattern — report as ERROR
-        if (firstArg instanceof FunctionCall) {
-            FunctionCall innerCall = (FunctionCall) firstArg;
-            if (!innerCall.getChildren().isEmpty()) {
-                AstNode innerCallee = innerCall.getChildren().get(0);
-                String innerName = extractCalleeName(innerCallee);
-                if ("get".equals(innerName)) {
-                    reportError(
-                            "Type error: unsafe type conversion '" + funcName
-                                    + "(request.form.get(...))'. "
-                                    + "The form input may not be a valid " + funcName
-                                    + " value. Add a try/except block or validation "
-                                    + "before converting. E.g.: "
-                                    + "try: price = " + funcName + "(value) except ValueError: ...",
-                            line);
-                    return;
-                }
-            }
-        }
-
-        // Check if the argument is a variable from external input
-        // This is a LESS DANGEROUS pattern (developer used intermediate variable)
-        // Report as WARNING — the developer may have added validation logic
-        if (firstArg instanceof Identifier) {
-            String varName = ((Identifier) firstArg).getName();
-            if (externalInputVars.contains(varName)) {
-                reportWarning(
-                        "Type warning: potentially unsafe type conversion '" + funcName + "("
-                                + varName + ")'. The variable '" + varName
-                                + "' comes from external input (request.form) and may "
-                                + "not be a valid " + funcName + " value. "
-                                + "Consider adding validation before conversion, e.g.: "
-                                + "if " + varName + " and " + varName + ".replace('.','').isdigit():",
-                        line);
-                return;
-            }
-        }
-
-        // Check if converting from an incompatible type (static)
-        String argType = inferType(firstArg);
-        if (funcName.equals("int") && argType.equals("String")) {
-            reportWarning(
-                    "Type warning: cannot convert String to Int implicitly. "
-                            + "The string value may not represent a valid integer. "
-                            + "Use try/except to handle potential ValueError.",
-                    line);
-        } else if (funcName.equals("float") && argType.equals("String")) {
-            reportWarning(
-                    "Type warning: cannot safely convert String to Float. "
-                            + "The string value may not represent a valid number. "
-                            + "Use try/except to handle potential ValueError.",
-                    line);
-        }
-    }
-
-
-    private String inferType(AstNode node) {
-        if (node instanceof NumberLiteral) return inferNumberType((NumberLiteral) node);
-        if (node instanceof StringLiteral) return "String";
-        if (node instanceof BooleanLiteral) return "Bool";
-        if (node instanceof NoneLiteral) return "None";
-        if (node instanceof ListLiteral) return "List";
-        if (node instanceof DictLiteral) return "Dict";
-        if (node instanceof Identifier) {
-            ScopeManager.TypeInfo info = scopes.lookup(((Identifier) node).getName());
-            return info != null ? info.type : "Any";
-        }
-        return "Any";
-    }
-
-    private void checkRenderTemplateCall(List<AstNode> args, int line) {
-        if (args.isEmpty()) return;
-
-        // First argument should be the template filename (StringLiteral)
-        AstNode templateArg = args.get(0);
-        String templateFile = null;
-
-        if (templateArg instanceof StringLiteral) {
-            templateFile = ((StringLiteral) templateArg).getValue();
-        } else {
-            // Dynamic template name — can't verify at compile time
-            reportError(
-                    "Missing Flask variable: render_template() called with "
-                            + "a non-literal template name. Cannot verify template "
-                            + "file existence at compile time. Use a string literal "
-                            + "for the template name.",
-                    line);
-            return;
-        }
-
-        // Record the template reference for post-analysis verification
-        referencedTemplates.put(templateFile, line);
-
-        // Track variables passed to this template
-        Set<String> passedVars = templatePassedVars.computeIfAbsent(
-                templateFile, k -> new LinkedHashSet<>());
-
-        for (int i = 1; i < args.size(); i++) {
-            AstNode arg = args.get(i);
-            if (arg instanceof KeywordArgument) {
-                KeywordArgument kw = (KeywordArgument) arg;
-                passedVars.add(kw.getKey());
-            }
-        }
-    }
-
-
-    private String visitAttributeAccess(AttributeAccess node) {
-        AstNode target = node.getTarget();
-        String targetType = visit(target);
-
-        if (targetType.equals("None")) {
-            reportError(
-                    "Type error: attribute access '."
-                            + node.getAttributeName()
-                            + "' on a 'None' value will always raise an error at runtime.",
-                    node.getLine());
-        } else if (targetType.equals("Int")
-                || targetType.equals("Float")
-                || targetType.equals("Bool")) {
-            reportError(
-                    "Type error: attribute access '."
-                            + node.getAttributeName()
-                            + "' on type '" + targetType
-                            + "' is not supported. "
-                            + "Did you mean to use a variable or object?",
-                    node.getLine());
-        }
-
-        return "Any";
-    }
-
-
-    private String visitSubscript(Subscript node) {
-        if (node.getChildren().size() < 2) return "Any";
-
-        AstNode targetNode = node.getChildren().get(0);
-        AstNode indexNode = node.getChildren().get(1);
-
-        String targetType = visit(targetNode);
-        String indexType = visit(indexNode);
-
-        if (!isSubscriptable(targetType)) {
-            reportError(
-                    "Type error: type '" + targetType
-                            + "' does not support subscript indexing (e.g. x[i]). "
-                            + "Expected List, Dict, or String.",
-                    node.getLine());
-        }
-
-        if (targetType.equals("List")
-                && !indexType.equals("Int")
-                && !indexType.equals("Any")) {
-            reportError(
-                    "Type error: List index must be an integer (Int), "
-                            + "but got '" + indexType + "'. "
-                            + "Use an integer variable or literal to index a List.",
-                    node.getLine());
-        }
-
-        return "Any";
-    }
-
-
-    private String visitListLiteral(ListLiteral node) {
-        for (AstNode child : node.getChildren()) visit(child);
-        return "List";
-    }
-
-    private String visitDictLiteral(DictLiteral node) {
-        for (AstNode child : node.getChildren()) {
-            if (child.getNodeName().equals("Entry") && child.getChildren().size() >= 2) {
-                AstNode key = child.getChildren().get(0);
-                AstNode value = child.getChildren().get(1);
-
-                String keyType = visit(key);
-                visit(value);
-
-
-                if (keyType.equals("List") || keyType.equals("Dict")) {
-                    reportError(
-                            "Type error: unhashable type '" + keyType
-                                    + "' used as dictionary key. "
-                                    + "Only immutable types (String, Int, Float, Bool, None, Tuple) "
-                                    + "can be used as dictionary keys.",
-                            key.getLine());
-                }
-            } else {
-                visit(child);
-            }
-        }
-        return "Dict";
-    }
-
 
     private String visitDecorator(Decorator node) {
         String name = node.getName();
         int line = node.getLine();
-
         if (name.contains(".")) {
             String obj = name.substring(0, name.indexOf('.'));
             if (scopes.lookup(obj) == null) {
@@ -1027,7 +854,6 @@ public class SemanticAnalyzerVisitor {
             }
         }
 
-        // ── CHECK D1: Route path uniqueness ──────────────────────────── //
         if (routePath != null) {
             String existing = registeredRoutes.get(routePath);
             if (existing != null) {
@@ -1040,12 +866,16 @@ public class SemanticAnalyzerVisitor {
                 String owner = currentFunctionName.isEmpty()
                         ? "<global>" : currentFunctionName.peek();
                 registeredRoutes.put(routePath, owner);
+
+                List<String> segments = extractDynamicSegments(routePath);
+                if (!segments.isEmpty() && !currentFunctionName.isEmpty()) {
+                    routeDynamicParams.put(currentFunctionName.peek(), segments);
+                }
             }
         }
 
-        // ── CHECK D2: HTTP method names ───────────────────────────────── //
-        Set<String> validMethods = new HashSet<>(
-                Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"));
+        Set<String> validMethods = new HashSet<>(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"));
         for (String method : httpMethods) {
             if (!validMethods.contains(method.toUpperCase())) {
                 reportError(
@@ -1060,63 +890,265 @@ public class SemanticAnalyzerVisitor {
     }
 
 
+    private List<String> extractDynamicSegments(String routePath) {
+        List<String> result = new ArrayList<>();
+        Matcher m = ROUTE_PARAM_PATTERN.matcher(routePath);
+        while (m.find()) {
+            result.add(m.group(1));
+        }
+        return result;
+    }
+
+
+    private void checkRenderTemplateCall(List<AstNode> args, int line) {
+        if (args.isEmpty()) return;
+
+        AstNode templateArg = args.get(0);
+        String templateFile;
+
+        if (templateArg instanceof StringLiteral) {
+            templateFile = ((StringLiteral) templateArg).getValue();
+        } else {
+            reportError(
+                    "Template path error: render_template() called with a non-literal "
+                            + "template name. Cannot verify file existence at compile time. "
+                            + "Use a string literal for the template name.",
+                    line);
+            return;
+        }
+
+        // Record reference line (first call wins for error reporting)
+        referencedTemplates.putIfAbsent(templateFile, line);
+
+        // FIX 6 – build a snapshot of variables passed by THIS call site
+        Set<String> snapshot = new LinkedHashSet<>();
+        for (int i = 1; i < args.size(); i++) {
+            AstNode arg = args.get(i);
+            if (arg instanceof KeywordArgument) {
+                snapshot.add(((KeywordArgument) arg).getKey());
+            }
+        }
+        templatePassedVarsPerCall
+                .computeIfAbsent(templateFile, k -> new ArrayList<>())
+                .add(snapshot);
+    }
+
+
+    private boolean isTypeConversionFunction(String name) {
+        return "float".equals(name) || "int".equals(name)
+                || "bool".equals(name) || "str".equals(name)
+                || "list".equals(name) || "dict".equals(name);
+    }
+
+    private void checkTypeConversionSafety(String funcName, List<AstNode> args, int line) {
+        if (args.isEmpty() || "str".equals(funcName)) return;
+
+        AstNode firstArg = args.get(0);
+
+        if (firstArg instanceof FunctionCall) {
+            FunctionCall inner = (FunctionCall) firstArg;
+            if (!inner.getChildren().isEmpty()) {
+                String innerName = extractCalleeName(inner.getChildren().get(0));
+                if ("get".equals(innerName)) {
+                    reportError(
+                            "Type error: unsafe type conversion '"
+                                    + funcName + "(request.form.get(...))'."
+                                    + " The form input may not be a valid "
+                                    + funcName + " value."
+                                    + " Add a try/except block or validate first.",
+                            line);
+                    return;
+                }
+            }
+        }
+
+        if (firstArg instanceof Identifier) {
+            String varName = ((Identifier) firstArg).getName();
+            if (externalInputVars.contains(varName)) {
+                reportWarning(
+                        "Type warning: potentially unsafe conversion '"
+                                + funcName + "(" + varName + ")'. The variable '"
+                                + varName + "' comes from request.form and may not be "
+                                + "a valid " + funcName + " value. Consider validating first.",
+                        line);
+                return;
+            }
+        }
+
+        String argType = inferType(firstArg);
+        if ("int".equals(funcName) && "String".equals(argType)) {
+            reportWarning(
+                    "Type warning: converting String to Int may raise ValueError. "
+                            + "Use try/except to handle potential errors.",
+                    line);
+        } else if ("float".equals(funcName) && "String".equals(argType)) {
+            reportWarning(
+                    "Type warning: converting String to Float may raise ValueError. "
+                            + "Use try/except to handle potential errors.",
+                    line);
+        }
+    }
+
+
+    private String visitAttributeAccess(AttributeAccess node) {
+        AstNode target = node.getTarget();
+        String targetType = visit(target);
+
+        if ("None".equals(targetType)) {
+            reportError(
+                    "Type error: attribute access '."
+                            + node.getAttributeName()
+                            + "' on a 'None' value will always raise an error at runtime.",
+                    node.getLine());
+        } else if ("Int".equals(targetType)
+                || "Float".equals(targetType)
+                || "Bool".equals(targetType)) {
+            reportError(
+                    "Type error: attribute access '."
+                            + node.getAttributeName()
+                            + "' on type '" + targetType + "' is not supported. "
+                            + "Did you mean to use a variable or object?",
+                    node.getLine());
+        }
+
+        return "Any";
+    }
+
+    private String visitSubscript(Subscript node) {
+        if (node.getChildren().size() < 2) return "Any";
+
+        AstNode targetNode = node.getChildren().get(0);
+        AstNode indexNode = node.getChildren().get(1);
+        String targetType = visit(targetNode);
+        String indexType = visit(indexNode);
+
+        if (!isSubscriptable(targetType)) {
+            reportError(
+                    "Type error: type '" + targetType
+                            + "' does not support subscript indexing (e.g. x[i]). "
+                            + "Expected List, Dict, or String.",
+                    node.getLine());
+        }
+
+        if ("List".equals(targetType)
+                && !"Int".equals(indexType)
+                && !"Any".equals(indexType)) {
+            reportError(
+                    "Type error: List index must be an integer (Int), "
+                            + "but got '" + indexType + "'. "
+                            + "Use an integer variable or literal to index a List.",
+                    node.getLine());
+        }
+
+        return "Any";
+    }
+
+
+    private String visitListLiteral(ListLiteral node) {
+        for (AstNode child : node.getChildren()) visit(child);
+        return "List";
+    }
+
+    private String visitDictLiteral(DictLiteral node) {
+        for (AstNode child : node.getChildren()) {
+            if ("Entry".equals(child.getNodeName())
+                    && child.getChildren().size() >= 2) {
+                AstNode key = child.getChildren().get(0);
+                AstNode value = child.getChildren().get(1);
+                String keyType = visit(key);
+                visit(value);
+                if ("List".equals(keyType) || "Dict".equals(keyType)) {
+                    reportError(
+                            "Type error: unhashable type '" + keyType
+                                    + "' used as dictionary key. "
+                                    + "Only immutable types (String, Int, Float, Bool, None) "
+                                    + "can be used as dictionary keys.",
+                            key.getLine());
+                }
+            } else {
+                visit(child);
+            }
+        }
+        return "Dict";
+    }
+
     private String inferNumberType(NumberLiteral node) {
         return node.getValue().contains(".") ? "Float" : "Int";
     }
 
+    private String inferType(AstNode node) {
+        if (node instanceof NumberLiteral) return inferNumberType((NumberLiteral) node);
+        if (node instanceof StringLiteral) return "String";
+        if (node instanceof BooleanLiteral) return "Bool";
+        if (node instanceof NoneLiteral) return "None";
+        if (node instanceof ListLiteral) return "List";
+        if (node instanceof DictLiteral) return "Dict";
+        if (node instanceof Identifier) {
+            ScopeManager.TypeInfo info =
+                    scopes.lookup(((Identifier) node).getName());
+            return info != null ? info.type : "Any";
+        }
+        return "Any";
+    }
+
     private boolean typesCompatible(String lhs, String rhs) {
-        if (lhs.equals("Any") || rhs.equals("Any")) return true;
+        if ("Any".equals(lhs) || "Any".equals(rhs)) return true;
         if (lhs.equals(rhs)) return true;
-        boolean lhsNum = lhs.equals("Int") || lhs.equals("Float");
-        boolean rhsNum = rhs.equals("Int") || rhs.equals("Float");
-        return lhsNum && rhsNum; // Int ↔ Float widening only.
+        boolean lNum = "Int".equals(lhs) || "Float".equals(lhs);
+        boolean rNum = "Int".equals(rhs) || "Float".equals(rhs);
+        return lNum && rNum;
     }
 
     private boolean isArithmeticOp(String op) {
-        return op.equals("+") || op.equals("-") || op.equals("*")
-                || op.equals("/") || op.equals("%") || op.equals("//")
-                || op.equals("**");
+        return "+".equals(op) || "-".equals(op) || "*".equals(op)
+                || "/".equals(op) || "%".equals(op) || "//".equals(op)
+                || "**".equals(op);
     }
 
     private boolean isComparisonOp(String op) {
-        return op.equals("==") || op.equals("!=") || op.equals("<")
-                || op.equals(">") || op.equals("<=") || op.equals(">=")
-                || op.equals("in") || op.equals("not in") || op.equals("is");
+        return "==".equals(op) || "!=".equals(op) || "<".equals(op)
+                || ">".equals(op) || "<=".equals(op) || ">=".equals(op)
+                || "in".equals(op) || "not in".equals(op) || "is".equals(op);
     }
 
     private boolean isLogicalOp(String op) {
-        return op.equals("and") || op.equals("or") || op.equals("not");
+        return "and".equals(op) || "or".equals(op) || "not".equals(op);
     }
 
     private boolean isSubscriptable(String type) {
-        return type.equals("List") || type.equals("Dict")
-                || type.equals("String") || type.equals("Any");
+        return "List".equals(type) || "Dict".equals(type)
+                || "String".equals(type) || "Any".equals(type);
     }
 
     private boolean isIterable(String type) {
-        return type.equals("List") || type.equals("Dict")
-                || type.equals("String") || type.equals("Any");
+        return "List".equals(type) || "Dict".equals(type)
+                || "String".equals(type) || "Any".equals(type);
     }
 
+    private boolean isTemplateBuiltin(String name) {
+        return Set.of(
+                "range", "lipsum", "dict", "cycler", "joiner", "namespace",
+                "true", "false", "none", "True", "False", "None",
+                "loop", "block", "endblock", "extends", "include",
+                "set", "import", "from", "as", "do", "macro", "call",
+                "filter", "endfilter", "raw", "endraw",
+                "super", "caller", "varargs", "kwargs"
+        ).contains(name);
+    }
 
     private void reportError(String message, int line) {
-        // Deduplicate errors to prevent double-reporting
-        String errorKey = "ERROR:" + message + "@" + line;
-        if (reportedErrors.contains(errorKey)) return;
-        reportedErrors.add(errorKey);
-
+        String key = "ERR:" + line + ":" + message;
+        if (reportedErrors.contains(key)) return;
+        reportedErrors.add(key);
         SemanticError err = new SemanticError(message, line, SemanticError.Severity.ERROR);
         errors.add(err);
         System.err.println("  ✗ " + err.getMessage());
     }
 
-
     private void reportWarning(String message, int line) {
-        // Deduplicate warnings to prevent double-reporting
-        String errorKey = "WARNING:" + message + "@" + line;
-        if (reportedErrors.contains(errorKey)) return;
-        reportedErrors.add(errorKey);
-
+        String key = "WARN:" + line + ":" + message;
+        if (reportedErrors.contains(key)) return;
+        reportedErrors.add(key);
         SemanticError warn = new SemanticError(message, line, SemanticError.Severity.WARNING);
         errors.add(warn);
         System.err.println("  ⚠ " + warn.getMessage());

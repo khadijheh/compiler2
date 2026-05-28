@@ -2,15 +2,16 @@ package semantic;
 
 import java.util.*;
 
-
 public class ScopeManager {
 
     // ------------------------------------------------------------------ //
     //  Inner class: TypeInfo                                               //
     // ------------------------------------------------------------------ //
     public static class TypeInfo {
-        public final String kind;   // Variable | Function | Parameter | Import | FlaskAPI
-        public final String type;   // Int | Float | String | Bool | None | List | Dict | Any | Function
+        public final String kind;
+        // Variable | Function | Parameter | Import | FlaskAPI | Builtin
+        public final String type;
+        // Int | Float | String | Bool | None | List | Dict | Any | Function
         public final int line;
 
         public TypeInfo(String kind, String type, int line) {
@@ -25,13 +26,10 @@ public class ScopeManager {
         }
     }
 
-    // ------------------------------------------------------------------ //
-    //  Inner class: Scope                                                  //
-    // ------------------------------------------------------------------ //
     private static class Scope {
         final String name;
         final Scope parent;
-        final Map<String, TypeInfo> table = new HashMap<>();
+        final Map<String, TypeInfo> table = new LinkedHashMap<>();
 
         Scope(String name, Scope parent) {
             this.name = name;
@@ -53,21 +51,15 @@ public class ScopeManager {
         }
     }
 
-    // ------------------------------------------------------------------ //
-    //  ScopeManager state                                                  //
-    // ------------------------------------------------------------------ //
     private Scope current;
 
-    /**
-     * Tracks whether the source code contains "from flask import ..." .
-     * Set to true by registerFlaskImports().
-     * Used by SemanticAnalyzerVisitor to warn: "Flask used but never imported."
-     */
-    private boolean flaskImported = true;
 
-    /**
-     * The complete set of Flask API names our compiler knows about.
-     */
+    private boolean suppressImportCheck = false;
+
+
+    private final Set<String> importedFlaskNames = new HashSet<>();
+
+
     public static final Set<String> FLASK_NAMES = new HashSet<>(Arrays.asList(
             "Flask", "render_template", "render_template_string",
             "request", "redirect", "url_for", "session", "g",
@@ -79,10 +71,6 @@ public class ScopeManager {
     public ScopeManager() {
         current = new Scope("Global", null);
         preloadBuiltins();
-    }
-
-    public void assumeFlaskImported() {
-        flaskImported = false;
     }
 
     public void enterScope(String name) {
@@ -99,7 +87,6 @@ public class ScopeManager {
         return current.name;
     }
 
-
     public void define(String name, String kind, String type, int line) {
         current.define(name, new TypeInfo(kind, type, line));
     }
@@ -112,24 +99,36 @@ public class ScopeManager {
         return current.definedLocally(name);
     }
 
-    // ------------------------------------------------------------------ //
-    //  Flask import tracking                                               //
-    // ------------------------------------------------------------------ //
+    public void suppressFlaskImportCheck() {
+        suppressImportCheck = true;
+    }
 
-    /**
-     * Called by visitImportStatement when a Flask import line is detected.
-     */
+
     public void registerFlaskImports(List<String> importedNames, int line) {
-        flaskImported = false;
         for (String name : importedNames) {
+            if (FLASK_NAMES.contains(name)) {
+                importedFlaskNames.add(name);
+            }
+            // Redefine so lookup() returns non-null with updated kind.
             define(name, "Import", "Any", line);
             System.out.println("  [Import] Registered '" + name + "'");
         }
     }
 
+    /**
+     * Returns true if import-checking is globally suppressed
+     * (i.e. the file had no import statements at all).
+     */
+    public boolean isImportCheckSuppressed() {
+        return suppressImportCheck;
+    }
 
-    public boolean isFlaskImported() {
-        return flaskImported;
+    /**
+     * Returns true if the given Flask name was explicitly imported.
+     * Used by visitIdentifier / visitFunctionCall to detect missing imports.
+     */
+    public boolean isFlaskNameImported(String name) {
+        return importedFlaskNames.contains(name);
     }
 
 
@@ -137,14 +136,9 @@ public class ScopeManager {
         return FLASK_NAMES.contains(name);
     }
 
-    // ------------------------------------------------------------------ //
-    //  Built-in pre-population                                             //
-    // ------------------------------------------------------------------ //
-
     private void preloadBuiltins() {
-        int B = 0; // line 0 = built-in
+        final int B = 0;
 
-        // Python built-in functions — always available, no import needed
         for (String fn : new String[]{
                 "print", "len", "range", "str", "int", "float", "bool",
                 "list", "dict", "tuple", "set", "type", "isinstance",
@@ -152,21 +146,22 @@ public class ScopeManager {
                 "open", "input", "abs", "max", "min", "sum", "round",
                 "hasattr", "getattr", "setattr", "next", "iter", "id",
                 "repr", "format", "vars", "dir", "callable", "staticmethod",
-                "classmethod", "property", "super", "object", "Exception"
-        })
-            define(fn, "Function", "Function", B);
+                "classmethod", "property", "super", "object", "Exception",
+                "ValueError", "TypeError", "KeyError", "IndexError",
+                "AttributeError", "RuntimeError", "StopIteration", "IOError"
+        }) {
+            define(fn, "Builtin", "Function", B);
+        }
 
-        // Python dunder variables — always present at module level
         for (String d : new String[]{
                 "__name__", "__file__", "__doc__", "__package__",
                 "__spec__", "__loader__", "__builtins__", "__all__",
                 "__version__", "__author__", "__main__"
-        })
+        }) {
             define(d, "Variable", "String", B);
+        }
 
-        // Flask names are registered as "FlaskAPI" — they ARE known to the compiler
-        // but flagged separately if used without an import statement.
-        // This prevents false "undeclared" errors while still tracking missing imports.
+
         for (String fn : FLASK_NAMES) {
             define(fn, "FlaskAPI", "Any", B);
         }
