@@ -1,0 +1,1253 @@
+{
+  "type": "PythonAST",
+  "root": {
+    "nodeType": "Program",
+    "line": 1,
+    "children": [
+      {
+        "nodeType": "ImportStatement",
+        "line": 1,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 1,
+            "name": "datetime",
+            "children": []
+          }
+        ]
+      },
+      {
+        "nodeType": "ImportStatement",
+        "line": 3,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 3,
+            "name": "Flask",
+            "children": []
+          },
+          {
+            "nodeType": "Identifier",
+            "line": 3,
+            "name": "redirect",
+            "children": []
+          },
+          {
+            "nodeType": "Identifier",
+            "line": 3,
+            "name": "render_template",
+            "children": []
+          },
+          {
+            "nodeType": "Identifier",
+            "line": 3,
+            "name": "request",
+            "children": []
+          },
+          {
+            "nodeType": "Identifier",
+            "line": 3,
+            "name": "url_for",
+            "children": []
+          }
+        ]
+      },
+      {
+        "nodeType": "Assign",
+        "line": 5,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 5,
+            "name": "app",
+            "children": []
+          },
+          {
+            "nodeType": "FunctionCall",
+            "line": 5,
+            "children": [
+              {
+                "nodeType": "Identifier",
+                "line": 5,
+                "name": "Flask",
+                "children": []
+              },
+              {
+                "nodeType": "Identifier",
+                "line": 5,
+                "name": "__name__",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "Assign",
+        "line": 8,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 8,
+            "name": "DEFAULT_IMAGE",
+            "children": []
+          },
+          {
+            "nodeType": "StringLiteral",
+            "line": 8,
+            "value": "/static/uploads/Headphones.jpg",
+            "children": []
+          }
+        ]
+      },
+      {
+        "nodeType": "Assign",
+        "line": 10,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 10,
+            "name": "products",
+            "children": []
+          },
+          {
+            "nodeType": "ListLiteral",
+            "line": 10,
+            "children": [
+              {
+                "nodeType": "ListLiteral",
+                "line": 11,
+                "children": [
+                  {
+                    "nodeType": "DictLiteral",
+                    "line": 11,
+                    "children": [
+                      {
+                        "nodeType": "",
+                        "line": 11,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 12,
+                            "value": "id",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "NumberLiteral",
+                            "line": 12,
+                            "value": "1",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 11,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 13,
+                            "value": "name",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 13,
+                            "value": "Apple",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 11,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 14,
+                            "value": "price",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "NumberLiteral",
+                            "line": 14,
+                            "value": "15.99",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 11,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 15,
+                            "value": "description",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 15,
+                            "value": "Fresh Apple",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 11,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 16,
+                            "value": "category",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 16,
+                            "value": "Fruit",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 11,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 17,
+                            "value": "image",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 17,
+                            "name": "DEFAULT_IMAGE",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "DictLiteral",
+                    "line": 19,
+                    "children": [
+                      {
+                        "nodeType": "",
+                        "line": 19,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 20,
+                            "value": "id",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "NumberLiteral",
+                            "line": 20,
+                            "value": "2",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 19,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 21,
+                            "value": "name",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 21,
+                            "value": "Milk",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 19,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 22,
+                            "value": "price",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "NumberLiteral",
+                            "line": 22,
+                            "value": "12.50",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 19,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 23,
+                            "value": "description",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 23,
+                            "value": "Fresh Milk",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 19,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 24,
+                            "value": "category",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 24,
+                            "value": "Dairy",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 19,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 25,
+                            "value": "image",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 25,
+                            "name": "DEFAULT_IMAGE",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "FunctionDef",
+        "line": 32,
+        "name": "home",
+        "returnType": "Any",
+        "params": [],
+        "children": [
+          {
+            "nodeType": "ReturnStatement",
+            "line": 34,
+            "children": [
+              {
+                "nodeType": "FunctionCall",
+                "line": 34,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 34,
+                    "name": "render_template",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "StringLiteral",
+                    "line": 35,
+                    "value": "index.html",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "KeywordArgument",
+                    "line": 36,
+                    "key": "products",
+                    "children": [
+                      {
+                        "nodeType": "Identifier",
+                        "line": 36,
+                        "name": "products",
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "KeywordArgument",
+                    "line": 37,
+                    "key": "now",
+                    "children": [
+                      {
+                        "nodeType": "FunctionCall",
+                        "line": 37,
+                        "children": [
+                          {
+                            "nodeType": "AttributeAccess",
+                            "line": 37,
+                            "children": [
+                              {
+                                "nodeType": "Identifier",
+                                "line": 37,
+                                "name": "datetime",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "Decorator",
+            "line": 32,
+            "name": "app.route",
+            "children": [
+              {
+                "nodeType": "StringLiteral",
+                "line": 32,
+                "value": "/",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "FunctionDef",
+        "line": 45,
+        "name": "product_detail",
+        "returnType": "Any",
+        "params": ["product_id"],
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 45,
+            "name": "product_id",
+            "children": []
+          },
+          {
+            "nodeType": "ForStatement",
+            "line": 47,
+            "children": [
+              {
+                "nodeType": "Identifier",
+                "line": 47,
+                "name": "product",
+                "children": []
+              },
+              {
+                "nodeType": "Identifier",
+                "line": 47,
+                "name": "products",
+                "children": []
+              },
+              {
+                "nodeType": "IfStatement",
+                "line": 48,
+                "children": [
+                  {
+                    "nodeType": "BinaryExpression",
+                    "line": 48,
+                    "operator": "==",
+                    "children": [
+                      {
+                        "nodeType": "Subscript",
+                        "line": 48,
+                        "children": [
+                          {
+                            "nodeType": "Identifier",
+                            "line": 48,
+                            "name": "product",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 48,
+                            "value": "id",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "Identifier",
+                        "line": 48,
+                        "name": "product_id",
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "ReturnStatement",
+                    "line": 49,
+                    "children": [
+                      {
+                        "nodeType": "FunctionCall",
+                        "line": 49,
+                        "children": [
+                          {
+                            "nodeType": "Identifier",
+                            "line": 49,
+                            "name": "render_template",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 50,
+                            "value": "product_details.html",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "KeywordArgument",
+                            "line": 51,
+                            "key": "product",
+                            "children": [
+                              {
+                                "nodeType": "Identifier",
+                                "line": 51,
+                                "name": "product",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "ReturnStatement",
+            "line": 54,
+            "children": [
+              {
+                "nodeType": "ListLiteral",
+                "line": 54,
+                "children": [
+                  {
+                    "nodeType": "StringLiteral",
+                    "line": 54,
+                    "value": "Not Found",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "NumberLiteral",
+                    "line": 54,
+                    "value": "404",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "Decorator",
+            "line": 45,
+            "name": "app.route",
+            "children": [
+              {
+                "nodeType": "StringLiteral",
+                "line": 45,
+                "value": "/product/<int:product_id>",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "FunctionDef",
+        "line": 57,
+        "name": "add_product",
+        "returnType": "Any",
+        "params": [],
+        "children": [
+          {
+            "nodeType": "IfStatement",
+            "line": 59,
+            "children": [
+              {
+                "nodeType": "BinaryExpression",
+                "line": 59,
+                "operator": "==",
+                "children": [
+                  {
+                    "nodeType": "AttributeAccess",
+                    "line": 59,
+                    "children": [
+                      {
+                        "nodeType": "Identifier",
+                        "line": 59,
+                        "name": "request",
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "StringLiteral",
+                    "line": 59,
+                    "value": "POST",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "Assign",
+                "line": 60,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 60,
+                    "name": "name",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "FunctionCall",
+                    "line": 60,
+                    "children": [
+                      {
+                        "nodeType": "AttributeAccess",
+                        "line": 60,
+                        "children": [
+                          {
+                            "nodeType": "AttributeAccess",
+                            "line": 60,
+                            "children": [
+                              {
+                                "nodeType": "Identifier",
+                                "line": 60,
+                                "name": "request",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "StringLiteral",
+                        "line": 60,
+                        "value": "name",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "nodeType": "Assign",
+                "line": 61,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 61,
+                    "name": "price",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "FunctionCall",
+                    "line": 61,
+                    "children": [
+                      {
+                        "nodeType": "AttributeAccess",
+                        "line": 61,
+                        "children": [
+                          {
+                            "nodeType": "AttributeAccess",
+                            "line": 61,
+                            "children": [
+                              {
+                                "nodeType": "Identifier",
+                                "line": 61,
+                                "name": "request",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "StringLiteral",
+                        "line": 61,
+                        "value": "price",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "nodeType": "Assign",
+                "line": 62,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 62,
+                    "name": "description",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "FunctionCall",
+                    "line": 62,
+                    "children": [
+                      {
+                        "nodeType": "AttributeAccess",
+                        "line": 62,
+                        "children": [
+                          {
+                            "nodeType": "AttributeAccess",
+                            "line": 62,
+                            "children": [
+                              {
+                                "nodeType": "Identifier",
+                                "line": 62,
+                                "name": "request",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "StringLiteral",
+                        "line": 62,
+                        "value": "description",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "nodeType": "Assign",
+                "line": 63,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 63,
+                    "name": "category",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "FunctionCall",
+                    "line": 63,
+                    "children": [
+                      {
+                        "nodeType": "AttributeAccess",
+                        "line": 63,
+                        "children": [
+                          {
+                            "nodeType": "AttributeAccess",
+                            "line": 63,
+                            "children": [
+                              {
+                                "nodeType": "Identifier",
+                                "line": 63,
+                                "name": "request",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "StringLiteral",
+                        "line": 63,
+                        "value": "category",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "nodeType": "Assign",
+                "line": 65,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 65,
+                    "name": "new_product",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "DictLiteral",
+                    "line": 65,
+                    "children": [
+                      {
+                        "nodeType": "",
+                        "line": 65,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 66,
+                            "value": "id",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "BinaryExpression",
+                            "line": 66,
+                            "operator": "+",
+                            "children": [
+                              {
+                                "nodeType": "FunctionCall",
+                                "line": 66,
+                                "children": [
+                                  {
+                                    "nodeType": "Identifier",
+                                    "line": 66,
+                                    "name": "len",
+                                    "children": []
+                                  },
+                                  {
+                                    "nodeType": "Identifier",
+                                    "line": 66,
+                                    "name": "products",
+                                    "children": []
+                                  }
+                                ]
+                              },
+                              {
+                                "nodeType": "NumberLiteral",
+                                "line": 66,
+                                "value": "1",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 65,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 67,
+                            "value": "name",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 67,
+                            "name": "name",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 65,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 68,
+                            "value": "price",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 68,
+                            "name": "price",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 65,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 69,
+                            "value": "description",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 69,
+                            "name": "description",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 65,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 70,
+                            "value": "category",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 70,
+                            "name": "category",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "nodeType": "",
+                        "line": 65,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 71,
+                            "value": "image",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "Identifier",
+                            "line": 71,
+                            "name": "DEFAULT_IMAGE",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "nodeType": "FunctionCall",
+                "line": 74,
+                "children": [
+                  {
+                    "nodeType": "AttributeAccess",
+                    "line": 74,
+                    "children": [
+                      {
+                        "nodeType": "Identifier",
+                        "line": 74,
+                        "name": "products",
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "Identifier",
+                    "line": 74,
+                    "name": "new_product",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "ReturnStatement",
+                "line": 75,
+                "children": [
+                  {
+                    "nodeType": "FunctionCall",
+                    "line": 75,
+                    "children": [
+                      {
+                        "nodeType": "Identifier",
+                        "line": 75,
+                        "name": "redirect",
+                        "children": []
+                      },
+                      {
+                        "nodeType": "FunctionCall",
+                        "line": 75,
+                        "children": [
+                          {
+                            "nodeType": "Identifier",
+                            "line": 75,
+                            "name": "url_for",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 75,
+                            "value": "home",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "ReturnStatement",
+            "line": 77,
+            "children": [
+              {
+                "nodeType": "FunctionCall",
+                "line": 77,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 77,
+                    "name": "render_template",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "StringLiteral",
+                    "line": 77,
+                    "value": "add_product.html",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "Decorator",
+            "line": 57,
+            "name": "app.route",
+            "children": [
+              {
+                "nodeType": "StringLiteral",
+                "line": 57,
+                "value": "/add",
+                "children": []
+              },
+              {
+                "nodeType": "KeywordArgument",
+                "line": 57,
+                "key": "methods",
+                "children": [
+                  {
+                    "nodeType": "ListLiteral",
+                    "line": 57,
+                    "children": [
+                      {
+                        "nodeType": "ListLiteral",
+                        "line": 57,
+                        "children": [
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 57,
+                            "value": "GET",
+                            "children": []
+                          },
+                          {
+                            "nodeType": "StringLiteral",
+                            "line": 57,
+                            "value": "POST",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "Assign",
+        "line": 80,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 80,
+            "name": "x",
+            "children": []
+          },
+          {
+            "nodeType": "StringLiteral",
+            "line": 80,
+            "value": "dko",
+            "children": []
+          }
+        ]
+      },
+      {
+        "nodeType": "Assign",
+        "line": 81,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 81,
+            "name": "y",
+            "children": []
+          },
+          {
+            "nodeType": "StringLiteral",
+            "line": 81,
+            "value": "kdjkgjd;",
+            "children": []
+          }
+        ]
+      },
+      {
+        "nodeType": "Assign",
+        "line": 82,
+        "children": [
+          {
+            "nodeType": "Identifier",
+            "line": 82,
+            "name": "c",
+            "children": []
+          },
+          {
+            "nodeType": "BinaryExpression",
+            "line": 82,
+            "operator": "+",
+            "children": [
+              {
+                "nodeType": "Identifier",
+                "line": 82,
+                "name": "x",
+                "children": []
+              },
+              {
+                "nodeType": "Identifier",
+                "line": 82,
+                "name": "y",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "FunctionDef",
+        "line": 83,
+        "name": "go_home",
+        "returnType": "Any",
+        "params": [],
+        "children": [
+          {
+            "nodeType": "ReturnStatement",
+            "line": 85,
+            "children": [
+              {
+                "nodeType": "FunctionCall",
+                "line": 85,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 85,
+                    "name": "redirect",
+                    "children": []
+                  },
+                  {
+                    "nodeType": "FunctionCall",
+                    "line": 85,
+                    "children": [
+                      {
+                        "nodeType": "Identifier",
+                        "line": 85,
+                        "name": "url_for",
+                        "children": []
+                      },
+                      {
+                        "nodeType": "StringLiteral",
+                        "line": 85,
+                        "value": "home",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "Decorator",
+            "line": 83,
+            "name": "app.route",
+            "children": [
+              {
+                "nodeType": "StringLiteral",
+                "line": 83,
+                "value": "/go-home",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "IfStatement",
+        "line": 88,
+        "children": [
+          {
+            "nodeType": "BinaryExpression",
+            "line": 88,
+            "operator": "==",
+            "children": [
+              {
+                "nodeType": "Identifier",
+                "line": 88,
+                "name": "__name__",
+                "children": []
+              },
+              {
+                "nodeType": "StringLiteral",
+                "line": 88,
+                "value": "_main__",
+                "children": []
+              }
+            ]
+          },
+          {
+            "nodeType": "FunctionCall",
+            "line": 89,
+            "children": [
+              {
+                "nodeType": "AttributeAccess",
+                "line": 89,
+                "children": [
+                  {
+                    "nodeType": "Identifier",
+                    "line": 89,
+                    "name": "app",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "KeywordArgument",
+                "line": 89,
+                "key": "debug",
+                "children": [
+                  {
+                    "nodeType": "BooleanLiteral",
+                    "line": 89,
+                    "value": true,
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

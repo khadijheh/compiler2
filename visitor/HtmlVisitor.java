@@ -17,8 +17,7 @@ import grammers.htmlParserBaseVisitor;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class HtmlVisitor extends htmlParserBaseVisitor<Node> {
 
@@ -157,16 +156,6 @@ public class HtmlVisitor extends htmlParserBaseVisitor<Node> {
         return value;
     }
 
-    private List<HtmlElement> extractHtmlElements(List<htmlParser.HtmlElementContext> contexts) {
-        List<HtmlElement> elements = new ArrayList<>();
-        for (htmlParser.HtmlElementContext context : contexts) {
-            Node node = visit(context);
-            if (node instanceof HtmlElement) {
-                elements.add((HtmlElement) node);
-            }
-        }
-        return elements;
-    }
 
     private List<HtmlAttribute> extractHtmlAttributes(List<htmlParser.HtmlAttributeContext> contexts) {
         List<HtmlAttribute> attributes = new ArrayList<>();
@@ -216,5 +205,46 @@ public class HtmlVisitor extends htmlParserBaseVisitor<Node> {
         }
 
         return value.toString();
+    }
+    private static final Set<String> VOID_TAGS = new HashSet<>(Arrays
+            .asList(
+            "area","base","br","col","embed","hr","img","input",
+            "link","meta","param","source","track","wbr"
+    ));
+
+    private List<HtmlElement> extractHtmlElements(List<htmlParser.HtmlElementContext> contexts) {
+        List<HtmlElement> elements = new ArrayList<>();
+        for (htmlParser.HtmlElementContext context : contexts) {
+            Node node = visit(context);
+            if (node instanceof HtmlElement) {
+                flattenVoidTag((HtmlElement) node, elements);
+            }
+        }
+        return elements;
+    }
+
+    private void flattenVoidTag(HtmlElement node, List<HtmlElement> out) {
+        if (node instanceof HtmlTag) {
+            HtmlTag tag = (HtmlTag) node;
+            if (VOID_TAGS.contains(tag.getTagName().toLowerCase())
+                    && !tag.getChildrenNodes().isEmpty()) {
+
+                List<Node> stolenChildren = new ArrayList<>(tag.getChildrenNodes());
+
+                // انسخ الـ void tag بدون أولاد
+                HtmlTag cleanTag = new HtmlTag(tag.getName(), tag.getNumberOfLine(),
+                        tag.getTagName(), tag.getAttributes(), new ArrayList<>());
+                out.add(cleanTag);
+
+                // أعد توزيع الأولاد "المسروقين" كإخوة (بالعودية)
+                for (Node child : stolenChildren) {
+                    if (child instanceof HtmlElement) {
+                        flattenVoidTag((HtmlElement) child, out);
+                    }
+                }
+                return;
+            }
+        }
+        out.add(node);
     }
 }
