@@ -92,18 +92,23 @@ public class JinjaRenderer {
     // ================================================================== //
     //  1. {{ expression }}                                                //
     // ================================================================== //
-
     private void renderExpression(JinjaExpression node, StringBuilder sb) {
-        String expr  = node.getExpression();
-        Object value = context.resolveVariable(expr);
+        String expr = node.getExpression();
+        String root = expr.contains(".") ? expr.substring(0, expr.indexOf('.')) : expr;
 
+        if (context.isDynamic(root)) {
+            sb.append("{{ ").append(expr).append(" }}");   // يبقى Jinja صالح لِـ Flask وقت التشغيل
+            return;
+        }
+
+        Object value = context.resolveVariable(expr);
         if (value == null) {
-            context.addWarning("{{ " + expr + " }} — not found (line "
-                    + node.getNumberOfLine() + ") — rendered empty");
+            context.addWarning("{{ " + expr + " }} — not found (line " + node.getNumberOfLine() + ") — rendered empty");
             return;
         }
         sb.append(escapeHtml(value.toString()));
     }
+
 
     // ================================================================== //
     //  2. {% for x in collection %}                                      //

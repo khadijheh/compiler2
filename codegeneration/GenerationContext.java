@@ -2,61 +2,12 @@ package codegeneration;
 
 import java.util.*;
 
-/**
- * GenerationContext
- * =================
- * الحاوية المركزية لكل بيانات مرحلة Code Generation.
- *
- * كل ملف في الـ codegen package يتعامل معها:
- *   ContextBuilder    → يملأها
- *   JinjaRenderer     → يقرأ منها (products, variables)
- *   OutputWriter      → يقرأ outputHtml منها ويكتبها على disk
- *   Generator         → يمررها بين الملفات
- *
- * ما الذي تحمله؟
- * ─────────────────────────────────────────────────────────────────
- * globalVariables   → المتغيرات المستخرجة من Python
- *                     مثال: {"products": [ {id:1, name:"Apple",...} ]}
- *
- * routes            → ربط route path ← function name
- *                     مثال: {"/" : "home", "/add" : "add_product"}
- *
- * templateVariables → المتغيرات المُمررة لكل template
- *                     مثال: {"index.html": {"products":"products"}}
- *
- * templates         → شجرة HTML/Jinja AST لكل template
- *                     مثال: {"index.html": Node(HtmlTag html ...)}
- *
- * outputHtml        → HTML الناتج النهائي لكل صفحة
- *                     مثال: {"index.html": "<html>...</html>"}
- *
- * variableScopes    → stack من scopes لحل  for loop variables
- *                     مثال: عند  {% for p in products %}
- *                            يُضيف scope: {"product": {id:1,...}}
- *
- * logEntries        → سجل كل خطوات التوليد
- * warnings          → تحذيرات (variable غير موجود، إلخ)
- */
 public class GenerationContext {
 
     // ================================================================== //
     //  1. المتغيرات المستخرجة من Python AST                              //
     // ================================================================== //
 
-    /**
-     * globalVariables
-     * ───────────────
-     * يُملأ من ContextBuilder عند قراءة Python AST.
-     *
-     * مثال محتوى:
-     * {
-     *   "products": [
-     *       {"id":1, "name":"Apple", "price":15.99, ...},
-     *       {"id":2, "name":"Milk",  "price":12.50, ...}
-     *   ],
-     *   "DEFAULT_IMAGE": "/static/uploads/Headphones.jpg"
-     * }
-     */
     private final Map<String, Object> globalVariables = new LinkedHashMap<>();
 
     // ================================================================== //
@@ -288,13 +239,10 @@ public class GenerationContext {
     public void addRoute(String path, String functionName) {
         routes.put(path, functionName);
     }
+    private final Set<String> dynamicVariables = new HashSet<>();
 
-    /**
-     * addRouteToTemplate()
-     * ─────────────────────
-     * يسجّل الربط المباشر: route path → template filename.
-     * يُستدعى من ContextBuilder عند قراءة render_template().
-     */
+    public boolean isDynamic(String name) { return dynamicVariables.contains(name); }
+
     public void addRouteToTemplate(String routePath, String templateFilename) {
         routeToTemplate.put(routePath, templateFilename);
     }

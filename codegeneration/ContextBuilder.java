@@ -47,12 +47,6 @@ public class ContextBuilder {
             ctx.addWarning("HTML root is null — no template registered");
         }
 
-        // ── خطوة 3: إذا products فارغة → أضف sample data للـ demo ──── //
-        Object productsObj = ctx.getGlobalVariables().get("products");
-        if (productsObj == null || (productsObj instanceof List && ((List<?>) productsObj).isEmpty())) {
-            ctx.addWarning("products not found or empty in Python AST — using sample data");
-            ctx.addGlobalVariable("products", buildSampleProducts());
-        }
 
         ctx.addLog("=== ContextBuilder finished ===");
         ctx.addLog("Global variables: " + ctx.getGlobalVariables().keySet());
@@ -393,21 +387,7 @@ private void extractRenderTemplateCalls(AstNode node,
             if (pythonName != null) {
                 Object pythonVal = ctx.getGlobalVariables().get(pythonName);
 
-                // ⭐ حالة خاصة: product هو loop variable وليس متغيراً عالمياً
-                if (pythonVal == null && "product".equals(jinjaName) && "product".equals(pythonName)) {
-                    // جلب قائمة products من globalVariables
-                    Object productsList = ctx.getGlobalVariables().get("products");
-                    if (productsList instanceof List && !((List<?>) productsList).isEmpty()) {
-                        // استخدم أول منتج كـ sample للـ preview
-                        Object firstProduct = ((List<?>) productsList).get(0);
-                        ctx.addGlobalVariable("product", firstProduct);
-                        ctx.addLog("    mapped: product → first item of products (list size: "
-                                + ((List<?>) productsList).size() + ")");
-                        continue;
-                    }
-                }
 
-                // ⭐ إذا كانت القيمة موجودة في globalVariables
                 if (pythonVal != null && !ctx.getGlobalVariables().containsKey(jinjaName)) {
                     ctx.addGlobalVariable(jinjaName, pythonVal);
                     ctx.addLog("    mapped: " + jinjaName + " → " + pythonName);
@@ -431,31 +411,4 @@ private void extractRenderTemplateCalls(AstNode node,
         }
     }
 
-    // ================================================================== //
-    //  Sample Data — إذا Python AST لم يُعطِ products                  //
-    // ================================================================== //
-
-    private List<Map<String, Object>> buildSampleProducts() {
-        List<Map<String, Object>> products = new ArrayList<>();
-
-        Map<String, Object> p1 = new LinkedHashMap<>();
-        p1.put("id",          1);
-        p1.put("name",        "Apple");
-        p1.put("price",       15.99);
-        p1.put("description", "Fresh Apple");
-        p1.put("category",    "Fruit");
-        p1.put("image",       "/static/uploads/Headphones.jpg");
-        products.add(p1);
-
-        Map<String, Object> p2 = new LinkedHashMap<>();
-        p2.put("id",          2);
-        p2.put("name",        "Milk");
-        p2.put("price",       12.50);
-        p2.put("description", "Fresh Milk");
-        p2.put("category",    "Dairy");
-        p2.put("image",       "/static/uploads/Headphones.jpg");
-        products.add(p2);
-
-        return products;
-    }
 }

@@ -27,6 +27,46 @@ products = [
 
 
 
+    {
+        "id": 3,
+        "name": "عصير ",
+        "price": 22,
+        "description": " s ",
+        "category": "مشروبات",
+        "image": DEFAULT_IMAGE,
+    },
+    {
+        "id": 4,
+        "name": "fresh",
+        "price": 55,
+        "description": "ى   ",
+        "category": "مشروبات",
+        "image": DEFAULT_IMAGE,
+    },
+    {
+        "id": 5,
+        "name": "موز",
+        "price": 5,
+        "description": "--",
+        "category": "فواكه",
+        "image": DEFAULT_IMAGE,
+    },
+    {
+        "id": 6,
+        "name": "اجاص ",
+        "price": 54,
+        "description": "--",
+        "category": "فواكه",
+        "image": DEFAULT_IMAGE,
+    },
+    {
+        "id": 7,
+        "name": "عنب",
+        "price": 8,
+        "description": "451542",
+        "category": "فواكه",
+        "image": DEFAULT_IMAGE,
+    },
 ]
 
 @app.route("/")

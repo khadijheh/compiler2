@@ -216,7 +216,7 @@ public class Main {
 
             } catch (Exception e) {
                 System.err.println("Error parsing '" + htmlFile + "': " + e.getMessage());
-                continue;
+
             }
         }
 
@@ -266,7 +266,7 @@ public class Main {
             // ── Parse index.html فقط ────────────────────────────────── //
             String htmlFile = "Files/index.html";
             if (!Files.exists(Paths.get(htmlFile))) {
-                System.err.println("[ReGenation] index.html not found");
+                System.err.println("[ReGeneration] index.html not found");
                 return;
             }
 
@@ -350,10 +350,8 @@ public class Main {
         // ⭐ تأكد من وجود dynamic route يدوياً إذا لم يتم استخراجه
         if (!routeTable.containsKey("/product/<int:product_id>")) {
             routeTable.put("/product/<int:product_id>", "product_details.html");
-            System.out.println("[RouteTable] Added dynamic route: /product/<int:product_id> → product_details.html");
         }
 
-        System.out.println("[RouteTable] Built " + routeTable.size() + " routes: " + routeTable);
 
         // ── ثانياً: أضف routes تلقائياً من output/ ────────────────────── //
         File outputDir = new File(OUTPUT_DIR);
@@ -386,90 +384,8 @@ public class Main {
             }
         }
 
-        System.out.println("[RouteTable] Built " + routeTable.size() + " routes: " + routeTable);
     }
-//    private static void buildRouteTable() {
-//        routeTable.clear();
-//
-//        // ── أولاً: اقرأ generation_log.txt لاستخراج RouteToTemplate ─── //
-//        Path logFile = Paths.get(COMPILER_OUTPUT_DIR + "/generation_log.txt");
-//        if (Files.exists(logFile)) {
-//            try {
-//                String log = Files.readString(logFile);
-//                // ابحث عن سطور مثل: RouteToTemplate: /add → add_product.html
-//                for (String line : log.split("\n")) {
-//                    line = line.trim();
-//                    if (line.contains("RouteToTemplate:")) {
-//                        // استخرج: "/add → add_product.html"
-//                        String part = line.substring(
-//                                line.indexOf("RouteToTemplate:") + 16).trim();
-//                        String[] sides = part.split("→", 2);
-//                        if (sides.length == 2) {
-//                            String route = sides[0].trim();
-//                            String template = sides[1].trim();
-//                            routeTable.put(route, template);
-//                            System.out.println("[RouteTable] " + route
-//                                    + " → " + template);
-//                        }
-//                    }
-//                }
-//            } catch (IOException e) {
-//                System.err.println("[RouteTable] Cannot read log: " + e.getMessage());
-//            }
-//        }
-//
-//        // ── ثانياً: أضف الـ routes الأساسية إذا لم توجد ──────────────── //
-//        // يمشي على كل ملفات output/ ويضيف route تلقائياً
-//        File outputDir = new File(OUTPUT_DIR);
-//        if (outputDir.exists()) {
-//            for (File f : outputDir.listFiles()) {
-//                if (!f.getName().endsWith(".html")) continue;
-//                String name = f.getName(); // "add_product.html"
-//
-//                // index.html → "/"
-//                if (name.equals("index.html")) {
-//                    routeTable.putIfAbsent("/", "index.html");
-//                    continue;
-//                }
-//
-//                // add_product.html → "/add_product" و "/add"
-//                String withoutExt = name.replace(".html", ""); // "add_product"
-//                routeTable.putIfAbsent("/" + withoutExt, name);
-//
-//                // أضف نسخة مختصرة: add_product → /add
-//                if (withoutExt.contains("_")) {
-//                    String[] parts = withoutExt.split("_");
-//                    String short1 = "/" + parts[0];            // "/add"
-//                    String short2 = "/" + parts[parts.length - 1]; // "/product"
-//                    routeTable.putIfAbsent(short1, name);
-//                    routeTable.putIfAbsent(short2, name);
-//                }
-//            }
-//        }
-//
-//        System.out.println("[RouteTable] Built " + routeTable.size()
-//                + " routes: " + routeTable);
-//    }
 
-    // ================================================================== //
-    //  HTTP SERVER                                                        //
-    // ================================================================== //
-
-    /**
-     * startHttpServer()
-     * ──────────────────
-     * يُشغّل HTTP Server بسيط على port 8080.
-     * <p>
-     * يخدم الملفات من مجلد output/ مباشرة في المتصفح.
-     * <p>
-     * Routes:
-     * http://localhost:8080/           → output/index.html
-     * http://localhost:8080/index.html → output/index.html
-     * http://localhost:8080/add_product.html → output/add_product.html
-     * http://localhost:8080/style.css  → output/style.css
-     * <p>
-     * يُشغَّل في Thread منفصل لا يمنع File Watcher.
-     */
     private static void startHttpServer() throws Exception {
         HttpServer server = HttpServer.create(
                 new InetSocketAddress(SERVER_PORT), 0);
@@ -485,28 +401,19 @@ public class Main {
                         + " → " + filePath);
 
                 File file = new File(OUTPUT_DIR + "/" + filePath);
-
-                if (!file.exists()) {
-                    // ── 404 Page ────────────────────────────────────────── //
-                    String body = "<!DOCTYPE html><html><body>"
-                            + "<h1>404 Not Found</h1>"
-                            + "<p>Path: <code>" + requestPath + "</code></p>"
-                            + "<p>Resolved to: <code>" + filePath + "</code></p>"
-                            + "<p>File not found in <code>output/</code></p>"
-                            + "<p>Available routes:</p><ul>"
-                            + buildRouteListHtml()
-                            + "</ul>"
-                            + "<a href='/'>← Back to Home</a>"
-                            + "</body></html>";
-                    byte[] bodyBytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().set("Content-Type",
-                            "text/html; charset=UTF-8");
-                    exchange.sendResponseHeaders(404, bodyBytes.length);
-                    exchange.getResponseBody().write(bodyBytes);
+                if (!file.exists() || !file.isFile()) {
+                    if (filePath.equals("favicon.ico")) {
+                        exchange.sendResponseHeaders(204, -1);
+                        exchange.getResponseBody().close();
+                        return;
+                    }
+                    String msg = "404 Not Found: " + filePath;
+                    byte[] bytes = msg.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(404, bytes.length);
+                    exchange.getResponseBody().write(bytes);
                     exchange.getResponseBody().close();
                     return;
                 }
-
                 // ── تحديد Content-Type وإرسال الملف ─────────────────── //
                 String contentType = getContentType(filePath);
                 byte[] response = Files.readAllBytes(file.toPath());
@@ -535,7 +442,6 @@ public class Main {
                         body.append(line);
                     }
 
-                    // تحليل البيانات (application/x-www-form-urlencoded)
                     String[] params = body.toString().split("&");
                     Map<String, String> formData = new HashMap<>();
                     for (String param : params) {
@@ -596,11 +502,10 @@ public class Main {
                         }
                     }
 
-                    // إعادة التوليد
-//                    runCompiler();
-                    generateOnlyIndexHtml();  // ← استخدم هذا بدلاً منه
 
-                    // إعادة توجيه إلى الصفحة الرئيسية
+                    generateOnlyIndexHtml();
+
+
                     exchange.getResponseHeaders().set("Location", "/");
                     exchange.sendResponseHeaders(302, -1);
                     exchange.getResponseBody().close();
@@ -612,11 +517,9 @@ public class Main {
                 Path htmlPath = Paths.get("output/add_product.html");
 
                 if (!Files.exists(htmlPath)) {
-                    // إذا لم يكن موجوداً، حاول التوليد أولاً
                     System.out.println("[Add] add_product.html not found in output/, running compiler...");
                     runCompiler();
 
-                    // حاول مرة أخرى
                     htmlPath = Paths.get("output/add_product.html");
                     if (!Files.exists(htmlPath)) {
                         String error = "add_product.html not found in output/ even after compilation";
@@ -680,7 +583,17 @@ public class Main {
             return "index.html";
         }
 
-        // ── 3. بحث بـ pattern للـ dynamic routes ────────────────────── //
+        // ⭐ 3. حالة خاصة: /product/<id> → أول شي، قبل أي شي تاني
+        if (requestPath.matches("^/product/\\d+$")) {
+            String id = requestPath.substring(requestPath.lastIndexOf('/') + 1);
+            File perProductFile = new File(OUTPUT_DIR + "/product_details_" + id + ".html");
+            if (perProductFile.exists()) {
+                return "product_details_" + id + ".html";
+            }
+            return "product_details.html"; // fallback احتياطي فقط
+        }
+
+        // ── 4. بحث بـ pattern لباقي الـ dynamic routes (غير /product) ── //
         for (Map.Entry<String, String> entry : routeTable.entrySet()) {
             String routeKey = entry.getKey();
             if (routeKey.contains("<") || routeKey.contains("{")) {
@@ -688,7 +601,6 @@ public class Main {
                         routeKey.indexOf('<') != -1 ? routeKey.indexOf('<') : Integer.MAX_VALUE,
                         routeKey.indexOf('{') != -1 ? routeKey.indexOf('{') : Integer.MAX_VALUE
                 );
-
                 if (paramStart != Integer.MAX_VALUE) {
                     String prefix = routeKey.substring(0, paramStart);
                     if (!prefix.isBlank() && requestPath.startsWith(prefix)) {
@@ -702,30 +614,6 @@ public class Main {
                     }
                 }
             }
-        }
-
-        // ── 4. معالجة خاصة لـ /product/{id} ──────────────────────────── //
-//        if (requestPath.matches("^/product/\\d+$")) {
-//            for (Map.Entry<String, String> entry : routeTable.entrySet()) {
-//                if (entry.getKey().startsWith("/product/") &&
-//                        (entry.getKey().contains("<") || entry.getKey().contains("{"))) {
-//                    return entry.getValue();
-//                }
-//            }
-//            if (new File(OUTPUT_DIR + "/product_details.html").exists()) {
-//                return "product_details.html";
-//            }
-//        }
-        if (requestPath.matches("^/product/\\d+$")) {
-            // ابحث في routeTable عن أي route يبدأ بـ /product/ ويحتوي على <
-            for (Map.Entry<String, String> entry : routeTable.entrySet()) {
-                String routeKey = entry.getKey();
-                if (routeKey.startsWith("/product/") && routeKey.contains("<")) {
-                    return entry.getValue();  // ← يرجع "product_details.html"
-                }
-            }
-            // إذا لم يوجد في routeTable، استخدم product_details.html مباشرة
-            return "product_details.html";
         }
 
         // ── 5. الملف موجود مباشرة ────────────────────────────────────── //
@@ -742,71 +630,6 @@ public class Main {
 
         return requestPath.replaceFirst("^/", "");
     }
-//    private static String resolveFilePath(String requestPath) {
-//        if (requestPath == null || requestPath.isBlank()) {
-//            return "index.html";
-//        }
-//
-//        // ── 1. بحث مباشر في routeTable ──────────────────────────────── //
-//        if (routeTable.containsKey(requestPath)) {
-//            return routeTable.get(requestPath);
-//        }
-//
-//        // ── 2. "/" → index.html ──────────────────────────────────────── //
-//        if (requestPath.equals("/")) {
-//            return "index.html";
-//        }
-//
-//        // ── 3. بحث بـ pattern (للـ dynamic routes مثل /product/1) ──── //
-//        for (Map.Entry<String, String> entry : routeTable.entrySet()) {
-//            String routeKey = entry.getKey();
-//            if (routeKey.contains("<")) {
-//                String prefix = routeKey.substring(0, routeKey.indexOf('<'));
-//                if (!prefix.isBlank() && requestPath.startsWith(prefix)) {
-//                    return entry.getValue();
-//                }
-//            }
-//        }
-//
-//        // ── 4. الملف موجود مباشرة (مثل /style.css, /add_product.html) ─ //
-//        if (requestPath.contains(".")) {
-//            // أزل الـ / الأولى
-//            return requestPath.replaceFirst("^/", "");
-//        }
-//
-//        // ── 5. Fallback: حاول إضافة .html ────────────────────────────── //
-//        String clean = requestPath.replaceFirst("^/", "");
-//        File htmlFile = new File(OUTPUT_DIR + "/" + clean + ".html");
-//        if (htmlFile.exists()) {
-//            return clean + ".html";
-//        }
-//
-//        // ── 6. أرجع الـ path كما هو (سيُعطي 404 إذا لم يوجد) ───────── //
-//        return requestPath.replaceFirst("^/", "");
-//    }
-
-    /**
-     * buildRouteListHtml()
-     * ─────────────────────
-     * يبني قائمة HTML بكل الـ routes المتاحة.
-     * يُستخدم في صفحة الـ 404 لمساعدة المستخدم.
-     */
-    private static String buildRouteListHtml() {
-        StringBuilder sb = new StringBuilder();
-        if (routeTable.isEmpty()) {
-            sb.append("<li>No routes available. Run compiler first.</li>");
-        } else {
-            for (Map.Entry<String, String> entry : routeTable.entrySet()) {
-                sb.append("<li><a href='")
-                        .append(entry.getKey()).append("'>")
-                        .append(entry.getKey()).append("</a>")
-                        .append(" → ").append(entry.getValue())
-                        .append("</li>");
-            }
-        }
-        return sb.toString();
-    }
-
     /**
      * getContentType()
      * ─────────────────
@@ -860,7 +683,7 @@ public class Main {
         Thread watcherThread = new Thread(() -> {
             while (true) {
                 try {
-                    WatchKey key = watchService.take(); // ينتظر حدث
+                    WatchKey key = watchService.take();
 
                     // ── debounce: انتظر 500ms لتجميع التغييرات ────────── //
                     Thread.sleep(500);

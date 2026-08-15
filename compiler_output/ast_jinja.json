@@ -1739,131 +1739,17 @@
                     ]
                   },
                   {
-                    "nodeType": "JinjaIfBlock",
-                    "name": "JinjaIfBlock",
-                    "line": 217,
-                    "children": [
-                      {
-                        "nodeType": "HtmlTag",
-                        "name": "HtmlTag(div)",
-                        "line": 218,
-                        "tagName": "div",
-                        "attributes": [
-                          { "name": " class", "value": "empty-box" }
-                        ],
-                        "children": [
-                          {
-                            "nodeType": "HtmlAttribute",
-                            "name": "HtmlAttribute( class=\"empty-box\")",
-                            "line": 218,
-                            "attrName": " class",
-                            "attrValue": "empty-box",
-                            "children": []
-                          },
-                          {
-                            "nodeType": "HtmlText",
-                            "name": "HtmlText(\"\\r\\n\")",
-                            "line": 218,
-                            "text": "",
-                            "children": []
-                          },
-                          {
-                            "nodeType": "HtmlTag",
-                            "name": "HtmlTag(h3)",
-                            "line": 219,
-                            "tagName": "h3",
-                            "attributes": [],
-                            "children": [
-                              {
-                                "nodeType": "HtmlText",
-                                "name": "HtmlText(\"لا توجد منتجات\")",
-                                "line": 219,
-                                "text": "لا توجد منتجات",
-                                "children": []
-                              }
-                            ]
-                          },
-                          {
-                            "nodeType": "HtmlText",
-                            "name": "HtmlText(\"\\r\\n\")",
-                            "line": 219,
-                            "text": "",
-                            "children": []
-                          },
-                          {
-                            "nodeType": "HtmlTag",
-                            "name": "HtmlTag(p)",
-                            "line": 220,
-                            "tagName": "p",
-                            "attributes": [],
-                            "children": [
-                              {
-                                "nodeType": "HtmlText",
-                                "name": "HtmlText(\"لم يتم إضافة أي منتجات بعد.\")",
-                                "line": 220,
-                                "text": "لم يتم إضافة أي منتجات بعد.",
-                                "children": []
-                              }
-                            ]
-                          },
-                          {
-                            "nodeType": "HtmlText",
-                            "name": "HtmlText(\"\\r\\n\")",
-                            "line": 220,
-                            "text": "",
-                            "children": []
-                          },
-                          {
-                            "nodeType": "HtmlTag",
-                            "name": "HtmlTag(a)",
-                            "line": 221,
-                            "tagName": "a",
-                            "attributes": [
-                              { "name": " href", "value": "/add" },
-                              { "name": " class", "value": "details-btn" }
-                            ],
-                            "children": [
-                              {
-                                "nodeType": "HtmlAttribute",
-                                "name": "HtmlAttribute( href=\"/add\")",
-                                "line": 221,
-                                "attrName": " href",
-                                "attrValue": "/add",
-                                "children": []
-                              },
-                              {
-                                "nodeType": "HtmlAttribute",
-                                "name": "HtmlAttribute( class=\"details-btn\")",
-                                "line": 221,
-                                "attrName": " class",
-                                "attrValue": "details-btn",
-                                "children": []
-                              },
-                              {
-                                "nodeType": "HtmlText",
-                                "name": "HtmlText(\"إضافة أول منتج\")",
-                                "line": 221,
-                                "text": "إضافة أول منتج",
-                                "children": []
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
                     "nodeType": "HtmlTag",
                     "name": "HtmlTag(footer)",
-                    "line": 225,
+                    "line": 218,
                     "tagName": "footer",
                     "attributes": [],
                     "children": [
                       {
                         "nodeType": "HtmlText",
-                        "name": "HtmlText(\"\\r\\n  © 2024 المتجر الإلكتروني. جميع الحقوق محفوظة.\\r\\n\")",
-                        "line": 225,
-                        "text": "© 2024 المتجر الإلكتروني. جميع الحقوق محفوظة.",
+                        "name": "HtmlText(\"\\r\\n  © 2026 المتجر الإلكتروني. جميع الحقوق محفوظة.\\r\\n\")",
+                        "line": 218,
+                        "text": "© 2026 المتجر الإلكتروني. جميع الحقوق محفوظة.",
                         "children": []
                       }
                     ]

@@ -67,7 +67,7 @@ public class Generator {
                 }
             }
 
-            // ⭐ 3. توليد JSON للـ ASTs
+
             ASTJsonSerializer serializer = new ASTJsonSerializer();
             String pythonJson = "{}";
             String jinjaJson = "{}";
@@ -162,17 +162,40 @@ public class Generator {
                 String templateName = entry.getKey();
                 Node templateRoot = entry.getValue();
 
-                System.out.println("  Rendering: " + templateName + "...");
-                ctx.addLog("Rendering template: " + templateName);
+                Map<String, String> vars = ctx.getTemplateVariables().get(templateName);
+                String perItemVar = null, perItemSource = null;
 
-                // التوليد الفعلي
-                String html = renderer.render(templateRoot);
+                if (vars != null) {
+                    for (Map.Entry<String, String> v : vars.entrySet()) {
+                        String jinjaName = v.getKey(), pythonName = v.getValue();
+                        if (ctx.getGlobalVariables().get(pythonName) == null) {
+                            Object candidateList = ctx.getGlobalVariables().get(pythonName + "s");
+                            if (candidateList instanceof List) {
+                                perItemVar = jinjaName;
+                                perItemSource = pythonName + "s";
+                                break;
+                            }
+                        }
+                    }
+                }
 
-                // حفظ النتيجة في GenerationContext
-                ctx.addOutput(templateName, html);
-
-                System.out.println("  ✓ " + templateName
-                        + " → " + html.length() + " chars generated");
+                if (perItemVar != null) {
+                    List<?> items = (List<?>) ctx.getGlobalVariables().get(perItemSource);
+                    String base = templateName.replace(".html", "");
+                    for (Object item : items) {
+                        ctx.addGlobalVariable(perItemVar, item);
+                        String html = renderer.render(templateRoot);
+                        Object idVal = (item instanceof Map) ? ((Map<?, ?>) item).get("id") : null;
+                        String outKey = base + "_" + idVal + ".html";
+                        ctx.addOutput(outKey, html);
+                        System.out.println("  ✓ " + outKey + " → " + html.length() + " chars generated");
+                    }
+                    ctx.getGlobalVariables().remove(perItemVar); // تنظيف بعد الحلقة
+                } else {
+                    String html = renderer.render(templateRoot);
+                    ctx.addOutput(templateName, html);
+                    System.out.println("  ✓ " + templateName + " → " + html.length() + " chars generated");
+                }
             }
         }
 

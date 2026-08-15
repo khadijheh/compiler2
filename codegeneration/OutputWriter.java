@@ -155,6 +155,7 @@ public class OutputWriter {
             if (!html.trim().toLowerCase().startsWith("<!doctype")) {
                 html = "<!DOCTYPE html>\n" + html;
             }
+            context.addOutput(templateName, html);
 
             String outPath = OUTPUT_DIR + "/" + templateName;
             writeFile(outPath, html, "HTML output: " + templateName);

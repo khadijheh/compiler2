@@ -1,12 +1,18 @@
 ============================================================
 GENERATION LOG
-Generated at: 2026-08-13 19:53:07
+Generated at: 2026-08-15 07:38:33
 ============================================================
 
 --- OUTPUT FILES ---
-  output/index.html  (7711 chars)
-  output/add_product.html  (5002 chars)
-  output/product_details.html  (7242 chars)
+  output/index.html  (10825 chars)
+  output/add_product.html  (5018 chars)
+  output/product_details_1.html  (7258 chars)
+  output/product_details_2.html  (7252 chars)
+  output/product_details_3.html  (7251 chars)
+  output/product_details_4.html  (7252 chars)
+  output/product_details_5.html  (7237 chars)
+  output/product_details_6.html  (7246 chars)
+  output/product_details_7.html  (7241 chars)
 
 --- ROUTES ---
   /  →  home()
@@ -16,43 +22,49 @@ Generated at: 2026-08-13 19:53:07
 
 --- GLOBAL VARIABLES ---
   DEFAULT_IMAGE = "/static/uploads/Headphones.jpg"
-  products = List[2 items]
+  products = List[7 items]
     [0] = {id=1, name=Apple, price=15.99, description=Fresh Apple, category=Fruit, image=/static/uploads/Headphones.jpg}
     [1] = {id=2, name=Milk, price=12.5, description=Fresh Milk, category=Dairy, image=/static/uploads/Headphones.jpg}
+    [2] = {id=3, name=عصير , price=22, description= s , category=مشروبات, image=/static/uploads/Headphones.jpg}
+    [3] = {id=4, name=fresh, price=55, description=ى   , category=مشروبات, image=/static/uploads/Headphones.jpg}
+    [4] = {id=5, name=موز, price=5, description=--, category=فواكه, image=/static/uploads/Headphones.jpg}
+    [5] = {id=6, name=اجاص , price=54, description=--, category=فواكه, image=/static/uploads/Headphones.jpg}
+    [6] = {id=7, name=عنب, price=8, description=451542, category=فواكه, image=/static/uploads/Headphones.jpg}
   x = "dko"
   y = "kdjkgjd;"
 
---- LOG ENTRIES (23) ---
+--- LOG ENTRIES (24) ---
   Processing template: index.html
   Processing template: add_product.html
   Processing template: product_details.html
-  Rendering template: index.html
   extractForExpression: using default 'product in products'
   For loop expression: 'product in products'
-  For: iterating 2 items
-  extractIfCondition: using default 'products'
-  If: 'products' = true
-  Rendering template: add_product.html
-  Rendering template: product_details.html
+  For: iterating 7 items
   === OutputWriter started ===
   === OutputWriter started ===
   Directory already exists: output
   Directory already exists: compiler_output
-  Writing 3 HTML file(s)...
-  Written: output/index.html  (7727 chars)  [HTML output: index.html]
+  Writing 9 HTML file(s)...
+  Written: output/index.html  (10825 chars)  [HTML output: index.html]
   Written: output/add_product.html  (5018 chars)  [HTML output: add_product.html]
-  Written: output/product_details.html  (7258 chars)  [HTML output: product_details.html]
+  Written: output/product_details_1.html  (7258 chars)  [HTML output: product_details_1.html]
+  Written: output/product_details_2.html  (7252 chars)  [HTML output: product_details_2.html]
+  Written: output/product_details_3.html  (7251 chars)  [HTML output: product_details_3.html]
+  Written: output/product_details_4.html  (7252 chars)  [HTML output: product_details_4.html]
+  Written: output/product_details_5.html  (7237 chars)  [HTML output: product_details_5.html]
+  Written: output/product_details_6.html  (7246 chars)  [HTML output: product_details_6.html]
+  Written: output/product_details_7.html  (7241 chars)  [HTML output: product_details_7.html]
   Copied support file: Files/test.txt → output/app.py
-  Written: compiler_output/ast_python.json  (39437 chars)  [Python AST JSON]
-  Written: compiler_output/ast_jinja.json  (80360 chars)  [Jinja AST JSON]
+  Written: compiler_output/ast_python.json  (60628 chars)  [Python AST JSON]
+  Written: compiler_output/ast_jinja.json  (75342 chars)  [Jinja AST JSON]
   Written: compiler_output/semantic_report.txt  (36 chars)  [Semantic Report]
 
 --- WARNINGS (0) ---
   No warnings.
 
 --- SUMMARY ---
-  HTML files generated : 3
+  HTML files generated : 9
   Routes found         : 4
   Warnings             : 0
-  Log entries          : 23
+  Log entries          : 24
 ============================================================
