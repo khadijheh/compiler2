@@ -31,10 +31,7 @@ import java.util.*;
 
 public class Main {
 
-    // ================================================================== //
-    //  إعدادات المشروع                                                   //
-    // ================================================================== //
-    /**/
+
     /**
      * ملفات HTML المطلوب معالجتها
      */
@@ -154,36 +151,41 @@ public class Main {
         } catch (Exception e) {
             System.err.println("Error in Symbol Table: " + e.getMessage());
         }
-
         // ── Phase 4: Semantic Analysis ───────────────────────────────── //
         System.out.println("\n=== PHASE 4: SEMANTIC ANALYSIS ===");
+        ScopeManager scopeManager = new ScopeManager();
+        SemanticAnalyzerVisitor semVisitor = new SemanticAnalyzerVisitor(scopeManager);
+        List<SemanticError> semanticErrors = new ArrayList<>();
+
         try {
-            ScopeManager scopeManager = new ScopeManager();
-            SemanticAnalyzerVisitor semVisitor =
-                    new SemanticAnalyzerVisitor(scopeManager);
-            try {
-                semVisitor.analyse(pythonAst);
-                semPassed = true;
-                semReport = "Semantic Analysis PASSED — 0 errors.";
-                System.out.println(semReport);
-            } catch (SemanticError se) {
-                semPassed = false;
-                semReport = se.getMessage();
-                System.err.println("\n" + semReport);
-            }
+            semVisitor.analyse(pythonAst);
+            semPassed = true;
+            semReport = "Semantic Analysis PASSED — 0 errors.";
+            System.out.println(semReport);
+        } catch (SemanticError se) {
+            semPassed = false;
+            semReport = se.getMessage();
+            System.err.println("\n" + se.getMessage());
+            semanticErrors = semVisitor.getAllErrors();
+            System.err.println("[Semantic] Total errors collected: " + semanticErrors.size());
         } catch (Exception e) {
             System.err.println("Error in Semantic Analysis: " + e.getMessage());
             semPassed = false;
             semReport = "Semantic error: " + e.getMessage();
         }
+        if (!semanticErrors.isEmpty()) {
+            System.out.println("\n" + "=".repeat(60));
+            System.out.println("ALL SEMANTIC ERRORS:");
+            System.out.println("=".repeat(60));
+            for (int i = 0; i < semanticErrors.size(); i++) {
+                System.out.println("  " + (i + 1) + ". " + semanticErrors.get(i).getMessage());
+            }
+            System.out.println("=".repeat(60) + "\n");
+        }
 
-
-        // في Main.java - runCompiler() - Phase 5
-
-// ── Phase 1 + 5: HTML Parse + Generate — لكل template ────────── //
+        // ── Phase 1 + 5: HTML Parse + Generate — لكل template ────────── //
         Generator generator = new Generator();
 
-// ⭐ جمع كل ASTs في Map واحد
         Map<String, Node> htmlRoots = new LinkedHashMap<>();
 
         for (String htmlFile : HTML_FILES) {
@@ -220,15 +222,16 @@ public class Main {
             }
         }
 
-        generator.generate(
-                htmlRoots,      // ← Map بجميع القوالب
+        // ── Phase 5: Code Generation ──────────────────────────────────── //
+        System.out.println("\n=== PHASE 5: CODE GENERATION ===");
+        generator.generateWithErrors(
+                htmlRoots,
                 pythonAst,
                 supportFiles,
                 semPassed,
-                semReport
+                semReport,
+                semanticErrors
         );
-
-        // ── بناء جدول الـ routes بعد التوليد ────────────────────────── //
         buildRouteTable();
 
         System.out.println("\n=== COMPILATION DONE ===");
@@ -288,7 +291,15 @@ public class Main {
             List<String> supportFiles = new ArrayList<>();
             supportFiles.add(PYTHON_FILE);
 
-            generator.generate(htmlRoots, pythonAst, supportFiles, semPassed, semReport);
+            generator.generateWithErrors(
+                    htmlRoots,
+                    pythonAst,
+                    supportFiles,
+                    semPassed,
+                    semReport,
+                    new ArrayList<>()
+            );
+
 
             // ── تحديث جدول الـ routes ────────────────────────────────── //
             buildRouteTable();
@@ -297,7 +308,6 @@ public class Main {
 
         } catch (Exception e) {
             System.err.println("[ReGeneration] Error generating index: " + e.getMessage());
-            // في حالة الفشل، ارجع إلى التوليد الكامل
             System.out.println("[ReGeneration] Falling back to full compilation...");
             runCompiler();
         }

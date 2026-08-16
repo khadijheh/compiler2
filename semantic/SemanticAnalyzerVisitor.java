@@ -1153,4 +1153,7 @@ public class SemanticAnalyzerVisitor {
         errors.add(warn);
         System.err.println("  ⚠ " + warn.getMessage());
     }
+    public List<SemanticError> getAllErrors() {
+        return Collections.unmodifiableList(errors);
+    }
 }

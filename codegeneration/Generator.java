@@ -2,6 +2,7 @@ package codegeneration;
 
 import AST.AstNode;
 import AST_H_C.Node;
+import semantic.SemanticError;
 
 import java.util.*;
 
@@ -28,11 +29,17 @@ public class Generator {
      * @param semanticPassed هل نجحت Semantic Analysis؟
      * @param semanticReport نص تقرير Semantic Analysis
      */
-    public void generate(Map<String, Node> htmlRoots,
-                         AstNode pythonRoot,
-                         List<String> supportFiles,
-                         boolean semanticPassed,
-                         String semanticReport) {
+    /**
+     * generateWithErrors()
+     * ─────────────────────
+     * نفس generate() ولكن مع تمرير قائمة الأخطاء semantic لكتابتها في التقرير.
+     */
+    public void generateWithErrors(Map<String, Node> htmlRoots,
+                                   AstNode pythonRoot,
+                                   List<String> supportFiles,
+                                   boolean semanticPassed,
+                                   String semanticReport,
+                                   List<SemanticError> semanticErrors) {
 
         printHeader();
 
@@ -42,11 +49,13 @@ public class Generator {
             System.err.println("[Generator]   Reason: " + semanticReport);
             System.err.println("[Generator]   Writing reports to compiler_output/ for debugging...\n");
 
-            // ⭐ 1. إنشاء Context واحد لجميع القوالب
             GenerationContext ctx = new GenerationContext();
             ctx.addWarning("Semantic Analysis failed: " + semanticReport);
 
-            // ⭐ 2. معالجة جميع القوالب في Context واحد
+            for (SemanticError err : semanticErrors) {
+                ctx.addLog("[SEMANTIC ERROR] " + err.getMessage());
+            }
+
             for (Map.Entry<String, Node> entry : htmlRoots.entrySet()) {
                 String templateName = entry.getKey();
                 Node htmlRoot = entry.getValue();
@@ -54,7 +63,6 @@ public class Generator {
                 ctx.addLog("Processing template: " + templateName);
                 ctx.addTemplate(templateName, htmlRoot);
 
-                // محاولة توليد HTML جزئي
                 if (htmlRoot != null) {
                     try {
                         JinjaRenderer renderer = new JinjaRenderer(ctx);
@@ -67,7 +75,6 @@ public class Generator {
                 }
             }
 
-
             ASTJsonSerializer serializer = new ASTJsonSerializer();
             String pythonJson = "{}";
             String jinjaJson = "{}";
@@ -75,7 +82,6 @@ public class Generator {
             if (pythonRoot != null) {
                 pythonJson = serializer.serializePython(pythonRoot);
             }
-            // سلسل أول HTML AST فقط (أو يمكن سلسل الكل)
             if (!htmlRoots.isEmpty()) {
                 Node firstHtml = htmlRoots.values().iterator().next();
                 if (firstHtml != null) {
@@ -83,14 +89,11 @@ public class Generator {
                 }
             }
 
-            // ⭐ 4. بناء تقرير الفشل المفصل
-            String fullReport = buildFailureReport(semanticReport, pythonRoot, htmlRoots, ctx);
+//            String fullReport = buildFailureReportWithErrors(semanticReport, semanticErrors, pythonRoot, htmlRoots, ctx);
 
-            //  5. كتابة كل الملفات
             OutputWriter writer = new OutputWriter(ctx);
-            writer.writeAll(pythonJson, jinjaJson, fullReport, supportFiles);
+            writer.writeAllWithErrors(pythonJson, jinjaJson, semanticReport, supportFiles, semanticErrors);
 
-            //  6. طباعة ملخص الفشل
             System.out.println("\n" + "=".repeat(60));
             System.out.println("   GENERATION FAILED - Semantic Errors");
             System.out.println("   compiler_output/semantic_report.txt - Error details");
@@ -101,20 +104,14 @@ public class Generator {
             return;
         }
 
-        // ──  Semantic نجحت ─────────────────────────────────────────── //
+        // ── Semantic نجحت ─────────────────────────────────────────── //
         System.out.println("[Generator] ✓ Semantic Analysis passed");
         System.out.println("[Generator] Starting code generation...\n");
 
-        // ================================================================ //
-        //  Step 1: ContextBuilder - معالجة جميع القوالب في Context واحد   //
-        // ================================================================ //
-
         System.out.println("[Step 1/4] Building GenerationContext...");
 
-        // ⭐ إنشاء Context واحد لجميع القوالب
         GenerationContext ctx = new GenerationContext();
 
-        // معالجة كل قالب وإضافته إلى نفس Context
         for (Map.Entry<String, Node> entry : htmlRoots.entrySet()) {
             String templateName = entry.getKey();
             Node htmlRoot = entry.getValue();
@@ -122,33 +119,23 @@ public class Generator {
             ctx.addLog("Processing template: " + templateName);
             ctx.addTemplate(templateName, htmlRoot);
 
-            // استخراج البيانات من Python AST وربطها مع القالب
             if (pythonRoot != null) {
                 ContextBuilder builder = new ContextBuilder();
-                // دمج البيانات في نفس Context
                 GenerationContext partialCtx = builder.build(pythonRoot, htmlRoot, templateName);
-
-                // دمج البيانات من partialCtx إلى ctx الرئيسي
                 mergeContexts(ctx, partialCtx);
             }
         }
 
-        // طباعة ملخص ما استخرجه
         System.out.println("  ✓ Routes found      : " + ctx.getRoutes().size());
         System.out.println("  ✓ Templates found   : " + ctx.getTemplates().size());
         System.out.println("  ✓ Global variables  : " + ctx.getGlobalVariables().keySet());
 
-        // طباعة products للتأكد
         Object products = ctx.getGlobalVariables().get("products");
         if (products instanceof List) {
             System.out.println("  ✓ Products count    : " + ((List<?>) products).size());
         }
 
         System.out.println();
-
-        // ================================================================ //
-        //  Step 2: JinjaRenderer - توليد جميع القوالب                     //
-        // ================================================================ //
 
         System.out.println("[Step 2/4] Rendering templates (Jinja → HTML)...");
 
@@ -190,7 +177,7 @@ public class Generator {
                         ctx.addOutput(outKey, html);
                         System.out.println("  ✓ " + outKey + " → " + html.length() + " chars generated");
                     }
-                    ctx.getGlobalVariables().remove(perItemVar); // تنظيف بعد الحلقة
+                    ctx.getGlobalVariables().remove(perItemVar);
                 } else {
                     String html = renderer.render(templateRoot);
                     ctx.addOutput(templateName, html);
@@ -201,44 +188,30 @@ public class Generator {
 
         System.out.println();
 
-        // ================================================================ //
-        //  Step 3: ASTJsonSerializer                                       //
-        //  يُحوّل ASTs إلى JSON                                          //
-        // ================================================================ //
-
         System.out.println("[Step 3/4] Serializing ASTs to JSON...");
 
         ASTJsonSerializer serializer = new ASTJsonSerializer();
 
-        // Python AST → JSON
         String pythonJson = "{}";
         if (pythonRoot != null) {
             pythonJson = serializer.serializePython(pythonRoot);
-            System.out.println("  ✓ Python AST serialized ("
-                    + pythonJson.length() + " chars)");
+            System.out.println("  ✓ Python AST serialized (" + pythonJson.length() + " chars)");
         } else {
             System.out.println("  ⚠ Python AST is null — skipped");
         }
 
-        // Jinja/HTML AST → JSON (خذ أول قالب)
         String jinjaJson = "{}";
         if (!htmlRoots.isEmpty()) {
             Node firstHtml = htmlRoots.values().iterator().next();
             if (firstHtml != null) {
                 jinjaJson = serializer.serializeJinja(firstHtml);
-                System.out.println("  ✓ Jinja AST serialized  ("
-                        + jinjaJson.length() + " chars)");
+                System.out.println("  ✓ Jinja AST serialized  (" + jinjaJson.length() + " chars)");
             }
         } else {
             System.out.println("  ⚠ Jinja AST is null — skipped");
         }
 
         System.out.println();
-
-        // ================================================================ //
-        //  Step 4: OutputWriter                                            //
-        //  يكتب كل الملفات على الـ disk                                  //
-        // ================================================================ //
 
         System.out.println("[Step 4/4] Writing output files...");
 
@@ -250,13 +223,8 @@ public class Generator {
         System.out.println("  ✓ output/            — HTML files written");
         System.out.println("  ✓ compiler_output/   — JSON + log files written");
 
-        // ================================================================ //
-        //  Summary                                                         //
-        // ================================================================ //
-
         printSummary(ctx);
     }
-
     // ================================================================== //
     //  دالة مساعدة لدمج Contexts                                         //
     // ================================================================== //
@@ -392,8 +360,8 @@ public class Generator {
      * يطبع ملخص نهائي بعد انتهاء التوليد.
      */
     private void printSummary(GenerationContext ctx) {
-        int htmlCount  = ctx.getOutputHtml().size();
-        int warnCount  = ctx.getWarnings().size();
+        int htmlCount = ctx.getOutputHtml().size();
+        int warnCount = ctx.getWarnings().size();
         int routeCount = ctx.getRoutes().size();
 
         System.out.println();
@@ -442,5 +410,63 @@ public class Generator {
         }
 
         System.out.println("=".repeat(60));
+    }
+    private String buildFailureReportWithErrors(String semanticReport,
+                                                List<SemanticError> semanticErrors,
+                                                AstNode pythonRoot,
+                                                Map<String, Node> htmlRoots,
+                                                GenerationContext ctx) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("=".repeat(60)).append("\n");
+        sb.append(" SEMANTIC ANALYSIS FAILED\n");
+        sb.append("=".repeat(60)).append("\n\n");
+
+        sb.append("ERROR SUMMARY:\n");
+        sb.append("-".repeat(60)).append("\n");
+        sb.append(semanticReport).append("\n\n");
+
+        sb.append("=".repeat(60)).append("\n");
+        sb.append("DETAILED ERRORS (").append(semanticErrors.size()).append(" errors)\n");
+        sb.append("=".repeat(60)).append("\n\n");
+
+        if (semanticErrors.isEmpty()) {
+            sb.append("  No detailed errors available.\n\n");
+        } else {
+            for (int i = 0; i < semanticErrors.size(); i++) {
+                SemanticError err = semanticErrors.get(i);
+                sb.append("  ").append(String.format("%-3d", i + 1));
+                sb.append("Line ").append(err.getLine());
+                sb.append(": ").append(err.getMessage());
+                sb.append("\n");
+                if (i < semanticErrors.size() - 1) {
+                    sb.append("  ").append("-".repeat(55)).append("\n");
+                }
+            }
+            sb.append("\n");
+        }
+
+        sb.append("=".repeat(60)).append("\n");
+        sb.append("WARNINGS\n");
+        sb.append("=".repeat(60)).append("\n");
+        List<String> warnings = ctx.getWarnings();
+        if (warnings.isEmpty()) {
+            sb.append("  No warnings.\n");
+        } else {
+            for (String w : warnings) {
+                sb.append("  ").append(w).append("\n");
+            }
+        }
+        sb.append("\n");
+
+        sb.append("=".repeat(60)).append("\n");
+        sb.append("NEXT STEPS\n");
+        sb.append("=".repeat(60)).append("\n");
+        sb.append("1. Fix all semantic errors listed above\n");
+        sb.append("2. Re-run the compiler\n");
+        sb.append("3. Check output/ for generated HTML files\n");
+        sb.append("=".repeat(60)).append("\n");
+
+        return sb.toString();
     }
 }

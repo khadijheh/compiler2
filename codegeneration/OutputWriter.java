@@ -1,5 +1,7 @@
 package codegeneration;
 
+import semantic.SemanticError;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -120,7 +122,40 @@ public class OutputWriter {
 
         context.addLog("=== OutputWriter finished ===");
     }
+    public void writeAllWithErrors(String pythonJson,
+                                   String jinjaJson,
+                                   String semanticReport,
+                                   List<String> supportFiles,
+                                   List<SemanticError> semanticErrors) {
 
+        context.addLog("=== OutputWriter started (with errors) ===");
+
+        createDirectory(OUTPUT_DIR);
+        createDirectory(COMPILER_OUTPUT_DIR);
+
+        writeHtmlOutputs();
+
+        if (supportFiles != null) {
+            for (String filePath : supportFiles) {
+                copySupportFile(filePath);
+            }
+        }
+
+        writeFile(COMPILER_OUTPUT_DIR + "/ast_python.json",
+                pythonJson != null ? pythonJson : "{}",
+                "Python AST JSON");
+
+        writeFile(COMPILER_OUTPUT_DIR + "/ast_jinja.json",
+                jinjaJson != null ? jinjaJson : "{}",
+                "Jinja AST JSON");
+
+        // ✅ هذه الدالة تبني التقرير الكامل من semanticReport + semanticErrors
+        writeSemanticReportWithErrors(semanticReport, semanticErrors);
+
+        writeGenerationLog();
+
+        context.addLog("=== OutputWriter finished ===");
+    }
     // ================================================================== //
     //  كتابة HTML الناتج                                                 //
     // ================================================================== //
@@ -401,5 +436,51 @@ public class OutputWriter {
                             + "  [" + label + "]"
             );
         }
+    }
+    private void writeSemanticReportWithErrors(String semanticReport,
+                                               List<SemanticError> semanticErrors) {
+        StringBuilder sb = new StringBuilder();
+
+        String separator = "=".repeat(60) + "\n";
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                .format(new Date());
+
+        sb.append(separator);
+        sb.append("SEMANTIC ANALYSIS REPORT\n");
+        sb.append("Generated at: ").append(timestamp).append("\n");
+        sb.append(separator).append("\n");
+
+        sb.append("SUMMARY:\n");
+        sb.append("-".repeat(60)).append("\n");
+        sb.append(semanticReport).append("\n\n");
+
+        if (semanticErrors != null && !semanticErrors.isEmpty()) {
+            sb.append(separator);
+            sb.append("DETAILED ERRORS (").append(semanticErrors.size()).append(" errors)\n");
+            sb.append(separator).append("\n");
+
+            for (int i = 0; i < semanticErrors.size(); i++) {
+                SemanticError err = semanticErrors.get(i);
+                sb.append(String.format("  #%-3d ", i + 1));
+                sb.append("Line ").append(err.getLine());
+                sb.append(": ").append(err.getMessage());
+                sb.append("\n");
+                if (i < semanticErrors.size() - 1) {
+                    sb.append("  ").append("-".repeat(55)).append("\n");
+                }
+            }
+            sb.append("\n");
+        }
+
+        sb.append(separator);
+        sb.append("STATISTICS\n");
+        sb.append(separator).append("\n");
+        sb.append("  Total errors  : ").append(semanticErrors != null ? semanticErrors.size() : 0).append("\n");
+        sb.append("  Total warnings: ").append(context.getWarnings().size()).append("\n");
+        sb.append(separator);
+
+        writeFile(COMPILER_OUTPUT_DIR + "/semantic_report.txt",
+                sb.toString(),
+                "Semantic Report with Errors");
     }
 }
