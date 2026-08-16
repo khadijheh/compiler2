@@ -630,6 +630,7 @@ public class Main {
 
         return requestPath.replaceFirst("^/", "");
     }
+
     /**
      * getContentType()
      * ─────────────────
@@ -684,32 +685,54 @@ public class Main {
             while (true) {
                 try {
                     WatchKey key = watchService.take();
-
-                    // ── debounce: انتظر 500ms لتجميع التغييرات ────────── //
                     Thread.sleep(500);
+                    boolean shouldRecompile = false;
 
                     for (WatchEvent<?> event : key.pollEvents()) {
                         WatchEvent.Kind<?> kind = event.kind();
-
                         if (kind == StandardWatchEventKinds.OVERFLOW) continue;
 
                         @SuppressWarnings("unchecked")
                         WatchEvent<Path> ev = (WatchEvent<Path>) event;
                         String fileName = ev.context().toString();
 
-                        System.out.println("\n" + "=".repeat(50));
                         System.out.println("[FileWatcher] Change detected: "
                                 + fileName + " (" + kind.name() + ")");
+                        shouldRecompile = true;
+                    }
+                    if (shouldRecompile) {
                         System.out.println("[FileWatcher] Re-running compiler...");
-                        System.out.println("=".repeat(50));
-
-                        // ── إعادة التوليد ────────────────────────────── //
                         runCompiler();
-
                         System.out.println("[FileWatcher] Done. Refresh browser.");
                     }
 
                     boolean valid = key.reset();
+//                    WatchKey key = watchService.take();
+//
+//                    // ── debounce: انتظر 500ms لتجميع التغييرات ────────── //
+//                    Thread.sleep(500);
+//
+//                    for (WatchEvent<?> event : key.pollEvents()) {
+//                        WatchEvent.Kind<?> kind = event.kind();
+//                        if (kind == StandardWatchEventKinds.OVERFLOW) continue;
+//
+//                        @SuppressWarnings("unchecked")
+//                        WatchEvent<Path> ev = (WatchEvent<Path>) event;
+//                        String fileName = ev.context().toString();
+//
+//                        System.out.println("\n" + "=".repeat(50));
+//                        System.out.println("[FileWatcher] Change detected: "
+//                                + fileName + " (" + kind.name() + ")");
+//                        System.out.println("[FileWatcher] Re-running compiler...");
+//                        System.out.println("=".repeat(50));
+//
+//                        // ── إعادة التوليد ────────────────────────────── //
+//                        runCompiler();
+//
+//                        System.out.println("[FileWatcher] Done. Refresh browser.");
+//                    }
+//
+//                    boolean valid = key.reset();
                     if (!valid) {
                         System.out.println("[FileWatcher] Watch key invalid — stopping.");
                         break;
